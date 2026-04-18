@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "start:all": "concurrently -n auth,event,gateway,leaderboard,notification,settings -c red,green,blue,magenta,yellow,cyan \"npm --prefix ./auth-service start\" \"npm --prefix ./event-service start\" \"npm --prefix ./gateway start\" \"npm --prefix ./leaderboard-service start\" \"npm --prefix ./notification-service start\" \"npm --prefix ./settings-service start\"",
+    "dev:all": "concurrently -n auth,event,gateway,leaderboard,notification,settings -c red,green,blue,magenta,yellow,cyan \"npm --prefix ./auth-service run dev\" \"npm --prefix ./event-service run dev\" \"npm --prefix ./gateway run dev\" \"npm --prefix ./leaderboard-service run dev\" \"npm --prefix ./notification-service run dev\" \"npm --prefix ./settings-service run dev\""
+  }
+}
+ 
