@@ -10,6 +10,7 @@ const RecruitmentDetailPage = () => {
     const [application, setApplication] = useState(null);
     const [loading, setLoading] = useState(true);
     const [applying, setApplying] = useState(false);
+    const [examData, setExamData] = useState(null);
     const [mobile, setMobile] = useState('');
     const [branch, setBranch] = useState('');
     const [year, setYear] = useState('');
@@ -17,12 +18,15 @@ const RecruitmentDetailPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [recRes, appRes] = await Promise.all([
-                    recruitmentService.getRecruitmentById(id),
-                    recruitmentService.getMyApplication(id)
+                const [recRes, appRes, examRes] = await Promise.all([
+                    recruitmentService.getRecruitmentById(id).catch((e) => { console.error('rec error', e); return { data: null }; }),
+                    user ? recruitmentService.getMyApplication(id).catch((e) => { console.error('app error', e); return { data: null }; }) : Promise.resolve({ data: null }),
+                    recruitmentService.getExam(id).catch((e) => { console.error('exam error', e); return { data: null }; })
                 ]);
-                setRecruitment(recRes.data);
-                setApplication(appRes.data);
+                console.log('fetchData appRes:', appRes);
+                if (recRes?.data) setRecruitment(recRes.data);
+                if (appRes !== undefined) setApplication(appRes?.data || null);
+                if (examRes?.data) setExamData(examRes.data);
             } catch (err) {
                 console.error(err);
             } finally {
@@ -30,7 +34,7 @@ const RecruitmentDetailPage = () => {
             }
         };
         fetchData();
-    }, [id]);
+    }, [id, user]);
     
 console.log("User",user);
 
@@ -143,10 +147,30 @@ console.log("User",user);
                                         {application.status === 'Shortlisted' && (
                                             <p className="text-xs text-indigo-500">Wait for final selection email!</p>
                                         )}
-                                        {recruitment.mode === 'Online' && application.status === 'Applied' && (
-                                            <Link to={`/recruitment/attempt-exam/${id}`} className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg">
-                                                📝 Launch Exam
-                                            </Link>
+                                        {console.log('Debug UI -> mode:', recruitment.mode, 'status:', application.status, 'responses:', application.examResponses, 'examData:', examData)}
+                                        {recruitment.mode === 'Online' && ['Applied', 'Shortlisted'].includes(application.status) && (
+                                            <>
+                                                {examData && !examData.isReleased && examData.scheduled && (
+                                                    <div className="p-4 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 mt-4 text-sm font-bold">
+                                                        ⏳ Upcoming Exam Soon
+                                                    </div>
+                                                )}
+                                                {(!examData || examData.isReleased) && (
+                                                    <Link to={`/recruitment/attempt-exam/${id}`} className="block w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg mt-4 text-center">
+                                                        📝 Launch Exam
+                                                    </Link>
+                                                )}
+                                            </>
+                                        )}
+
+                                        {['Exam Attempted', 'Shortlisted', 'Selected', 'Rejected'].includes(application.status) && (application.examResponses && application.examResponses.length > 0) && (
+                                            <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl mt-4 text-center">
+                                                <p className="text-gray-500 font-bold mb-1 uppercase tracking-widest text-xs">Exam Score</p>
+                                                <p className="text-2xl font-black text-indigo-700 mb-4">{application.totalMarks} Marks</p>
+                                                <Link to={`/recruitment/exam-review/${id}`} className="block w-full py-2 bg-white text-indigo-600 border-2 border-indigo-100 rounded-lg font-bold hover:border-indigo-600 transition text-sm text-center">
+                                                    📄 Review Paper
+                                                </Link>
+                                            </div>
                                         )}
                                     </div>
                                 ) : (isDeadlinePassed || isClosed) ? (

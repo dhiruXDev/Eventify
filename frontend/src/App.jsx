@@ -28,7 +28,9 @@ import {
   FinalizeSelection,
   RecruitmentDetailPage,
   ExamAttemptPage,
-  RegisteredStudents
+  RegisteredStudents,
+  EvaluateExam,
+  ExamReviewPage
 } from './pages';
 import { ProtectedRoute } from './components/auth';
 import UIHomePage from './pages/UIHomePage';
@@ -134,14 +136,23 @@ function App() {
           <Route path="/recruitment/registrations/:id" element={<Layout />}>
             <Route index element={<RegisteredStudents />} />
           </Route>
-          <Route path="/recruitment/finalize/:id" element={<Layout />}>
+          <Route path="/recruitment/:id/finalize" element={<Layout />}>
             <Route index element={<FinalizeSelection />} />
+          </Route>
+          <Route path="/recruitment/edit/:id" element={<Layout />}>
+            <Route index element={<CreateRecruitment />} />
           </Route>
           <Route path="/recruitment/:id" element={<Layout />}>
             <Route index element={<RecruitmentDetailPage />} />
           </Route>
           <Route path="/recruitment/attempt-exam/:id" element={<Layout />}>
             <Route index element={<ExamAttemptPage />} />
+          </Route>
+          <Route path="/recruitment/:id/evaluate/:appId" element={<Layout />}>
+            <Route index element={<EvaluateExam />} />
+          </Route>
+          <Route path="/recruitment/exam-review/:id" element={<Layout />}>
+            <Route index element={<ExamReviewPage />} />
           </Route>
 
         </Route>

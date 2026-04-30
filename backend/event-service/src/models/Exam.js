@@ -33,14 +33,19 @@ const examSchema = new mongoose.Schema({
     },
     questions: [{
         text: { type: String, required: true },
-        type: { type: String, enum: ['MCQ', 'Objective'], default: 'MCQ' },
+        type: { type: String, enum: ['MCQ', 'Objective', 'Paragraph'], default: 'MCQ' },
         options: [String],
-        correctAnswer: { type: String, required: true },
-        marks: { type: Number, default: 1 }
+        correctAnswer: { type: String },
+        marks: { type: Number, default: 1 },
+        wordLimit: { type: Number, default: 500 }
     }],
     isReleased: {
         type: Boolean,
         default: false
+    },
+    targetAudience: {
+        type: [String], // Array of statuses like ['Applied', 'Shortlisted']
+        default: ['Applied'] // By default everyone who applied can see it
     },
     createdAt: {
         type: Date,

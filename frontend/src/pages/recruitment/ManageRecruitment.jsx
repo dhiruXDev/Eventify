@@ -87,6 +87,9 @@ const ManageRecruitment = () => {
                             </div>
 
                             <div className="mt-4 md:mt-0 flex gap-3 flex-wrap">
+                                <Link to={`/recruitment/edit/${rec._id}`} className="px-4 py-2 bg-amber-50 text-amber-600 rounded-lg font-bold hover:bg-amber-100 transition whitespace-nowrap">
+                                    ✏️ Edit Details
+                                </Link>
                                 {rec.mode === 'Online' && (
                                     <>
                                         <Link to={`/recruitment/exam/${rec._id}`} className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-bold hover:bg-indigo-100 transition whitespace-nowrap">

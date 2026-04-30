@@ -10,7 +10,8 @@ router.route('/')
 router.get('/my-applications', protect, recruitmentController.getMyApplications);
 
 router.route('/:id')
-    .get(recruitmentController.getRecruitmentById);
+    .get(recruitmentController.getRecruitmentById)
+    .put(protect, authorize('organizer', 'admin'), recruitmentController.updateRecruitment);
 
 router.post('/:id/apply', protect, recruitmentController.applyRecruitment);
 router.get('/:id/my-application', protect, recruitmentController.getMyApplication);
@@ -25,6 +26,7 @@ router.get('/:id/applications', protect, authorize('organizer', 'admin'), recrui
 router.put('/:id/close', protect, authorize('organizer', 'admin'), recruitmentController.closeRecruitment);
 
 router.post('/:id/submit-exam', protect, recruitmentController.submitExam);
+router.post('/:id/evaluate-paper/:appId', protect, authorize('organizer', 'admin'), recruitmentController.evaluatePaper);
 
 router.post('/:id/screen', protect, authorize('organizer', 'admin'), recruitmentController.screenUsers);
 

@@ -12,7 +12,8 @@ const FinalizeSelection = () => {
         selectedUserIds: [],
         venue: '',
         date: '',
-        time: ''
+        time: '',
+        offlineNote: ''
     });
 
     useEffect(() => {
@@ -20,6 +21,23 @@ const FinalizeSelection = () => {
             try {
                 const res = await recruitmentService.getRecruitmentApplications(id);
                 setApplications(res.data);
+                
+                // Pre-load currently selected users for re-finalization
+                const previouslySelected = res.data.filter(a => a.status === 'Selected').map(a => a.userId);
+                
+                // Load dummy venue dates if a selection exists
+                const existingSelection = res.data.find(a => a.status === 'Selected' && a.selectionDetails);
+                if (existingSelection && existingSelection.selectionDetails) {
+                    setSelectionData(prev => ({
+                        ...prev,
+                        selectedUserIds: previouslySelected,
+                        venue: existingSelection.selectionDetails.venue || '',
+                        date: existingSelection.selectionDetails.date ? new Date(existingSelection.selectionDetails.date).toISOString().split('T')[0] : '',
+                        time: existingSelection.selectionDetails.time || '',
+                    }));
+                } else if (previouslySelected.length > 0) {
+                     setSelectionData(prev => ({ ...prev, selectedUserIds: previouslySelected }));
+                }
             } catch (err) {
                 console.error(err);
             } finally {
@@ -66,7 +84,9 @@ const FinalizeSelection = () => {
 
     if (loading) return <div className="text-center p-12">Loading...</div>;
 
-    const shortlistedUsers = applications.filter(a => a.status === 'Shortlisted');
+    // Show both Shortlisted AND previously Selected candidates so organizers can modify the final list
+    const candidateUsers = applications.filter(a => a.status === 'Shortlisted' || a.status === 'Selected');
+    const isReFinalizing = applications.some(a => a.status === 'Selected');
 
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
@@ -108,9 +128,9 @@ const FinalizeSelection = () => {
                 <div className="p-6">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div>
-                            <h4 className="font-bold text-gray-700 mb-4">Shortlisted Candidates ({shortlistedUsers.length})</h4>
+                            <h4 className="font-bold text-gray-700 mb-4">Eligible Candidates ({candidateUsers.length})</h4>
                             <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                                {shortlistedUsers.map(user => (
+                                {candidateUsers.map(user => (
                                     <div
                                         key={user.userId}
                                         className={`p-4 rounded-xl border-2 transition cursor-pointer flex justify-between items-center ${selectionData.selectedUserIds.includes(user.userId)
@@ -131,7 +151,7 @@ const FinalizeSelection = () => {
                                         </div>
                                     </div>
                                 ))}
-                                {shortlistedUsers.length === 0 && <p className="text-gray-400 text-center py-8">No shortlisted students found. Run screening first.</p>}
+                                {candidateUsers.length === 0 && <p className="text-gray-400 text-center py-8">No eligible students found. Run screening first, or ensure you have reviewed papers.</p>}
                             </div>
                         </div>
 
@@ -171,12 +191,21 @@ const FinalizeSelection = () => {
                                         />
                                     </div>
                                 </div>
+                                <div className="space-y-2 text-left">
+                                    <label className="text-sm font-semibold text-gray-600">Custom Email Message (Offline note)</label>
+                                    <textarea
+                                        placeholder="e.g. Please bring your laptop and ID card..."
+                                        value={selectionData.offlineNote}
+                                        onChange={(e) => setSelectionData({ ...selectionData, offlineNote: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 min-h-[80px]"
+                                    ></textarea>
+                                </div>
                                 <button
                                     type="submit"
                                     className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg hover:bg-emerald-700 shadow-lg mt-4 disabled:bg-gray-400"
                                     disabled={selectionData.selectedUserIds.length === 0}
                                 >
-                                    Finalize {selectionData.selectedUserIds.length} Selections
+                                    {isReFinalizing ? `Update ${selectionData.selectedUserIds.length} Selections` : `Finalize ${selectionData.selectedUserIds.length} Selections`}
                                 </button>
                             </form>
                         </div>

@@ -87,30 +87,49 @@ const ExamAttemptPage = () => {
                                 <h3 className="text-lg font-bold text-gray-800 leading-tight">{q.text}</h3>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-12">
-                                {q.options.map((opt, oIndex) => (
-                                    <label
-                                        key={oIndex}
-                                        className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-center gap-3 ${responses[qIndex]?.answer === opt
-                                                ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
-                                                : 'border-white bg-white hover:border-gray-200 text-gray-600'
-                                            }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name={`q-${qIndex}`}
-                                            value={opt}
-                                            checked={responses[qIndex]?.answer === opt}
-                                            onChange={() => handleAnswer(qIndex, opt)}
-                                            className="hidden"
-                                        />
-                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${responses[qIndex]?.answer === opt ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'}`}>
-                                            {responses[qIndex]?.answer === opt && <div className="w-2 h-2 rounded-full bg-white"></div>}
-                                        </div>
-                                        <span className="font-semibold">{opt}</span>
-                                    </label>
-                                ))}
-                            </div>
+                            {q.type === 'Paragraph' ? (
+                                <div className="pl-12">
+                                    <textarea
+                                        value={responses[qIndex]?.answer || ''}
+                                        onChange={(e) => {
+                                            const words = e.target.value.trim().split(/\s+/);
+                                            if (words.length <= (q.wordLimit || 500) || e.target.value.length < (responses[qIndex]?.answer?.length || 0)) {
+                                                handleAnswer(qIndex, e.target.value);
+                                            }
+                                        }}
+                                        placeholder={`Write your answer here (Max ${q.wordLimit || 500} words)...`}
+                                        className="w-full p-4 rounded-xl border-2 border-gray-200 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 min-h-[150px] transition-all bg-white text-gray-800"
+                                    ></textarea>
+                                    <div className="text-right mt-2 text-xs font-bold text-gray-400">
+                                        Words: {responses[qIndex]?.answer ? responses[qIndex].answer.trim().split(/\s+/).filter(w => w.length > 0).length : 0} / {q.wordLimit || 500}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-12">
+                                    {q.options.map((opt, oIndex) => (
+                                        <label
+                                            key={oIndex}
+                                            className={`p-4 rounded-xl border-2 cursor-pointer transition flex items-center gap-3 ${responses[qIndex]?.answer === opt
+                                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-900'
+                                                    : 'border-white bg-white hover:border-gray-200 text-gray-600'
+                                                }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={`q-${qIndex}`}
+                                                value={opt}
+                                                checked={responses[qIndex]?.answer === opt}
+                                                onChange={() => handleAnswer(qIndex, opt)}
+                                                className="hidden"
+                                            />
+                                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${responses[qIndex]?.answer === opt ? 'border-indigo-600 bg-indigo-600' : 'border-gray-300'}`}>
+                                                {responses[qIndex]?.answer === opt && <div className="w-2 h-2 rounded-full bg-white"></div>}
+                                            </div>
+                                            <span className="font-semibold">{opt}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

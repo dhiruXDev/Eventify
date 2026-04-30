@@ -41,6 +41,11 @@ const recruitmentService = {
         return response.data;
     },
 
+    updateRecruitment: async (id, data) => {
+        const response = await recruitmentApi.put(`/${id}`, data);
+        return response.data;
+    },
+
     apply: async (id, data) => {
         console.log("Data", data);
         const response = await recruitmentApi.post(`/${id}/apply`, data);
@@ -78,8 +83,8 @@ const recruitmentService = {
         return response.data;
     },
 
-    releaseExam: async (id) => {
-        const response = await recruitmentApi.put(`/${id}/exam/release`);
+    releaseExam: async (id, data) => {
+        const response = await recruitmentApi.put(`/${id}/exam/release`, data);
         return response.data;
     },
 
@@ -95,6 +100,11 @@ const recruitmentService = {
 
     finalizeSelection: async (id, data) => {
         const response = await recruitmentApi.post(`/${id}/finalize`, data);
+        return response.data;
+    },
+
+    evaluatePaper: async (id, appId, data) => {
+        const response = await recruitmentApi.post(`/${id}/evaluate-paper/${appId}`, data);
         return response.data;
     }
 };

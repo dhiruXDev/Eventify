@@ -81,6 +81,39 @@ exports.getRecruitmentById = async (req, res, next) => {
 };
 
 /**
+ * @desc    Update recruitment drive
+ * @route   PUT /api/recruitment/:id
+ * @access  Private (Organizer)
+ */
+exports.updateRecruitment = async (req, res, next) => {
+    try {
+        const recruitment = await Recruitment.findById(req.params.id);
+
+        if (!recruitment) {
+            return res.status(404).json({ success: false, message: 'Recruitment not found' });
+        }
+
+        // Must be the creator (organizer) or an admin
+        if (recruitment.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+            return res.status(401).json({ success: false, message: 'User not authorized to update this recruitment' });
+        }
+
+        const updatedRecruitment = await Recruitment.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+
+        res.status(200).json({
+            success: true,
+            data: updatedRecruitment
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * @desc    Get applications for a recruitment
  * @route   GET /api/recruitment/:id/applications
  * @access  Private (Organizer)
@@ -199,9 +232,21 @@ exports.getExam = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Exam not found' });
         }
 
-        // Only organizers or if the exam is released
-        if (!exam.isReleased && req.user.role !== 'organizer') {
-            return res.status(403).json({ success: false, message: 'Exam not yet released' });
+        // Get user's application to check their status
+        const app = await RecruitmentApplication.findOne({ recruitmentId: req.params.id, userId: req.user.id });
+
+        // Only organizers or if the exam is released AND user is in the target audience
+        // Or if the user has ALREADY attempted the exam, let them view it for review!
+        if (req.user.role !== 'organizer') {
+            const hasAttempted = app && app.examResponses && app.examResponses.length > 0;
+            if (!hasAttempted) {
+                if (!exam.isReleased) {
+                    return res.status(200).json({ success: true, data: { isReleased: false, scheduled: true } });
+                }
+                if (!app || !exam.targetAudience.includes(app.status)) {
+                    return res.status(403).json({ success: false, message: 'You are not eligible for this exam phase' });
+                }
+            }
         }
 
         res.status(200).json({
@@ -225,7 +270,13 @@ exports.toggleExamRelease = async (req, res, next) => {
             return res.status(404).json({ success: false, message: 'Exam not found' });
         }
 
+        const { targetAudience } = req.body;
+
         exam.isReleased = !exam.isReleased;
+        if (exam.isReleased && targetAudience && Array.isArray(targetAudience)) {
+            exam.targetAudience = targetAudience;
+        }
+
         await exam.save();
 
         res.status(200).json({
@@ -249,6 +300,10 @@ exports.applyRecruitment = async (req, res, next) => {
         console.log("recruitment ", recruitment)
         if (!recruitment) {
             return res.status(404).json({ success: false, message: 'Recruitment not found' });
+        }
+
+        if (recruitment.deadline && new Date() > new Date(recruitment.deadline)) {
+            return res.status(400).json({ success: false, message: 'Registration has been closed for this drive as the deadline has passed.' });
         }
 
         let application = await RecruitmentApplication.findOne({
@@ -363,10 +418,19 @@ exports.submitExam = async (req, res, next) => {
         const { responses } = req.body;
         let totalMarks = 0;
         const evaluatedResponses = exam.questions.map((q, index) => {
-            const userAns = responses.find(r => r.questionIndex === index)?.answer;
-            const isCorrect = userAns === q.correctAnswer;
-            const marks = isCorrect ? q.marks : 0;
-            totalMarks += marks;
+            const userAns = responses.find(r => r.questionIndex === index)?.answer || '';
+            let isCorrect = false;
+            let marks = 0;
+
+            if (q.type === 'Paragraph') {
+                isCorrect = null; // Needs manual evaluation
+                marks = 0; // Granted later
+            } else {
+                isCorrect = userAns === q.correctAnswer;
+                marks = isCorrect ? q.marks : 0;
+                totalMarks += marks;
+            }
+
             return {
                 questionIndex: index,
                 answer: userAns,
@@ -388,6 +452,43 @@ exports.submitExam = async (req, res, next) => {
         res.status(200).json({
             success: true,
             data: application
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Manually evaluate subjective/paragraph exam responses
+ * @route   POST /api/recruitment/:id/evaluate-paper/:appId
+ * @access  Private (Organizer/Admin)
+ */
+exports.evaluatePaper = async (req, res, next) => {
+    try {
+        const { manualMarks } = req.body; // Array of { questionIndex: Number, marksObtained: Number }
+        
+        const application = await RecruitmentApplication.findById(req.params.appId);
+        if (!application) return res.status(404).json({ success: false, message: 'Application not found' });
+
+        let addedMarks = 0;
+
+        application.examResponses.forEach(response => {
+            const manualGrade = manualMarks.find(m => m.questionIndex === response.questionIndex);
+            if (manualGrade !== undefined) {
+                // Remove old marks if it was already evaluated to prevent double adding, though initially it's 0
+                addedMarks += (Number(manualGrade.marksObtained) - (response.marksObtained || 0));
+                response.marksObtained = Number(manualGrade.marksObtained);
+                response.isCorrect = true; // Mark as evaluated
+            }
+        });
+
+        application.totalMarks += addedMarks;
+        await application.save();
+
+        res.status(200).json({
+            success: true,
+            data: application,
+            message: 'Paper evaluated successfully'
         });
     } catch (error) {
         next(error);
@@ -482,93 +583,99 @@ exports.screenUsers = async (req, res, next) => {
  */
 exports.finalizeSelection = async (req, res, next) => {
     try {
-        const { selectedUserIds, venue, date, time } = req.body;
+        const { selectedUserIds, venue, date, time, offlineNote } = req.body;
 
         const recruitment = await Recruitment.findById(req.params.id);
 
+        // Update selected users
         await RecruitmentApplication.updateMany(
             { recruitmentId: req.params.id, userId: { $in: selectedUserIds } },
             {
                 status: 'Selected',
-                selectionDetails: { venue, date, time }
+                selectionDetails: { venue, date, time, offlineNote }
             }
         );
 
-        // Update rejected users (those who were Shortlisted but not selected)
+        // Update newly rejected users (those who were Shortlisted OR Selected but are no longer in selectedUserIds)
+        // This handles re-finalization where an organizer unchecks someone
+        const newlyRejected = await RecruitmentApplication.find({ 
+            recruitmentId: req.params.id, 
+            userId: { $nin: selectedUserIds }, 
+            status: { $in: ['Shortlisted', 'Selected'] } 
+        });
+
         await RecruitmentApplication.updateMany(
-            { recruitmentId: req.params.id, userId: { $nin: selectedUserIds }, status: 'Shortlisted' },
+            { recruitmentId: req.params.id, userId: { $nin: selectedUserIds }, status: { $in: ['Shortlisted', 'Selected'] } },
             { status: 'Rejected' }
         );
 
-        // Get emails of selected users for notification
+        // Notify newly rejected users
+        const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+
+        if (newlyRejected.length > 0) {
+            const rejUserIds = newlyRejected.map(app => app.userId);
+            const rejUsersData = await userService.getUsersByIds(rejUserIds, token);
+            const rejectedEmails = newlyRejected.map(app => {
+                const user = rejUsersData[app.userId.toString()];
+                return app.userEmail || (user ? user.email : null);
+            }).filter(Boolean);
+
+            if (rejectedEmails.length > 0) {
+                setImmediate(() => {
+                    emailService.sendRecruitmentUpdate(
+                        rejectedEmails,
+                        `Update regarding ${recruitment.title} Selection`,
+                        'Application Status',
+                        `We appreciate your interest in the <strong>${recruitment.title}</strong> role at <strong>${recruitment.clubName}</strong>. Following the final review, we regret to inform you that you have not been selected for this run.<br><br>Keep honing your skills and best of luck for future opportunities!`,
+                        `${process.env.CLIENT_URL}/dashboard`,
+                        'View Dashboard'
+                    );
+                });
+            }
+        }
+
+        // Notify selected users
         const selectedApplications = await RecruitmentApplication.find({
             recruitmentId: req.params.id,
             userId: { $in: selectedUserIds }
         });
         
-        const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+        if (selectedApplications.length > 0) {
+            const selUserIds = selectedApplications.map(app => app.userId);
+            const selUsersData = await userService.getUsersByIds(selUserIds, token);
+            const selectedEmails = selectedApplications.map(app => {
+                const user = selUsersData[app.userId.toString()];
+                return app.userEmail || (user ? user.email : null);
+            }).filter(Boolean);
 
-        const selUserIds = selectedApplications.map(app => app.userId);
-        const selUsersData = await userService.getUsersByIds(selUserIds, token);
-        const selectedEmails = selectedApplications.map(app => {
-            const user = selUsersData[app.userId.toString()];
-            return app.userEmail || (user ? user.email : null);
-        }).filter(Boolean);
+            if (selectedEmails.length > 0) {
+                const customNoteHtml = offlineNote ? `<br><br><div style="background:#f4f4f5;padding:15px;border-left:4px solid #4f46e5;border-radius:5px;"><strong>Note from Organizer:</strong><br>${offlineNote.replace(/\n/g, '<br>')}</div>` : '';
 
-        // Notify Rejected Users from Final Selection
-        const rejectedApplications = await RecruitmentApplication.find({
-            recruitmentId: req.params.id,
-            userId: { $nin: selectedUserIds },
-            status: 'Rejected' // Those who just got rejected in this step or previously
-        });
-
-        // Filter those who just got rejected (their status was Shortlisted before)
-        // Since we already updated them to Rejected, we can just grab all Rejected who weren't notified. 
-        // Wait, sending rejection to all Rejected might email people who failed the exam. To avoid this, 
-        // let's only email those who made it past the exam but failed final selection. Wait, getting complex. 
-        // Let's just notify the ones we updated.
-        // It's safer to query those who were Shortlisted AND $nin selectedUserIds... Oh wait, we already updated them!
-        
-        const rejUserIds = rejectedApplications.map(app => app.userId);
-        const rejUsersData = await userService.getUsersByIds(rejUserIds, token);
-        const rejectedEmails = rejectedApplications.map(app => {
-            const user = rejUsersData[app.userId.toString()];
-            return app.userEmail || (user ? user.email : null);
-        }).filter(Boolean);
-
-        if (rejectedEmails.length > 0) {
-            setImmediate(() => {
-                emailService.sendRecruitmentUpdate(
-                    rejectedEmails,
-                    `Update regarding ${recruitment.title} Selection`,
-                    'Application Status',
-                    `We appreciate your interest in the <strong>${recruitment.title}</strong> role at <strong>${recruitment.clubName}</strong>. Following the final review, we regret to inform you that you have not been selected this time.<br><br>Keep honing your skills and best of luck for future opportunities!`,
-                    `${process.env.CLIENT_URL}/dashboard`,
-                    'View Dashboard'
-                );
-            });
+                setImmediate(() => {
+                    emailService.sendRecruitmentUpdate(
+                        selectedEmails,
+                        `Congratulations! Selection for ${recruitment.title}`,
+                        'You are Selected!',
+                        `We are pleased to inform you that you have been selected for the role at <strong>${recruitment.clubName}</strong>.<br><br><strong>Venue:</strong> ${venue}<br><strong>Date:</strong> ${new Date(date).toLocaleDateString()}<br><strong>Time:</strong> ${time}${customNoteHtml}`,
+                        `${process.env.CLIENT_URL}/dashboard`,
+                        'View My Status'
+                    );
+                });
+            }
         }
 
-        // Send "Congratulations" email
-        if (selectedEmails.length > 0) {
-            setImmediate(() => {
-                emailService.sendRecruitmentUpdate(
-                    selectedEmails,
-                    `Congratulations! Selection for ${recruitment.title}`,
-                    'You are Selected!',
-                    `We are pleased to inform you that you have been selected for the role at <strong>${recruitment.clubName}</strong>.<br><br><strong>Venue:</strong> ${venue}<br><strong>Date:</strong> ${new Date(date).toLocaleDateString()}<br><strong>Time:</strong> ${time}`,
-                    `${process.env.CLIENT_URL}/dashboard`,
-                    'View My Status'
-                );
-            });
-        }
-
-        // Update recruitment status
-        await Recruitment.findByIdAndUpdate(req.params.id, { status: 'Completed' });
+        // Keep recruitment active until closed manually, or close it automatically? The instruction says re-finalizing should be possible. 
+        // We shouldn't auto close here, let the user close it, BUT the original code did auto-close.
+        // Wait, original code: await Recruitment.findByIdAndUpdate(req.params.id, { status: 'Completed' });
+        // The project has a Close button for Recruitment. But for now I'll just keep the original behavior or modify it to stay active.
+        // Let's NOT auto-close it here, so they can update lists continuously until THEY choose to click "Close Registration Drive". 
+        // BUT actually original code auto-set to 'Completed', meaning the recruitment itself ended. That's fine. Wait, if it's completed they can't re-finalize?
+        // Let's check ManageRecruitments. You can't see the finalize button if it's completed? I'll remove the auto-close.
+        // Let's just remove the auto update to Completed so they can keep editing it!
 
         res.status(200).json({
             success: true,
-            message: 'Selection finalized and recruitment completed'
+            message: 'Selection finalized and emails sent'
         });
     } catch (error) {
         next(error);

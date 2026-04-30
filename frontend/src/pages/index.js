@@ -36,3 +36,5 @@ export { default as RegisteredStudents } from './recruitment/RegisteredStudents'
 export { default as FinalizeSelection } from './recruitment/FinalizeSelection';
 export { default as RecruitmentDetailPage } from './recruitment/RecruitmentDetailPage';
 export { default as ExamAttemptPage } from './recruitment/ExamAttemptPage';
+export { default as EvaluateExam } from './recruitment/EvaluateExam';
+export { default as ExamReviewPage } from './recruitment/ExamReviewPage';

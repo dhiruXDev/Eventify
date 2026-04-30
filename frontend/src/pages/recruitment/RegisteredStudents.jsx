@@ -50,6 +50,7 @@ const RegisteredStudents = () => {
                             <th className="px-6 py-4 text-sm font-bold text-gray-700 uppercase tracking-wider">Contact Details</th>
                             <th className="px-6 py-4 text-sm font-bold text-gray-700 uppercase tracking-wider">Status</th>
                             <th className="px-6 py-4 text-sm font-bold text-gray-700 uppercase tracking-wider">Date Applied</th>
+                            <th className="px-6 py-4 text-sm font-bold text-gray-700 uppercase tracking-wider text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -96,11 +97,21 @@ const RegisteredStudents = () => {
                                 <td className="px-6 py-4 text-sm text-gray-600">
                                     {new Date(app.createdAt || app.appliedAt).toLocaleDateString()}
                                 </td>
+                                <td className="px-6 py-4 text-right">
+                                    {(app.status === 'Exam Attempted' || app.status === 'Shortlisted' || app.status === 'Selected' || app.status === 'Rejected') && (
+                                        <Link 
+                                            to={`/recruitment/${id}/evaluate/${app._id}`}
+                                            className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-lg font-bold text-xs hover:bg-indigo-100 transition whitespace-nowrap"
+                                        >
+                                            Review Paper
+                                        </Link>
+                                    )}
+                                </td>
                             </tr>
                         ))}
                         {applications.length === 0 && (
                             <tr>
-                                <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
+                                <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                                     No students registered for this drive yet.
                                 </td>
                             </tr>

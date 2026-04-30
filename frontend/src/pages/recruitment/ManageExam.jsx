@@ -15,6 +15,7 @@ const ManageExam = () => {
         duration: '30 Minute',
         totalMarks: 0,
         cutoffMarks: 0,
+        targetAudience: ['Applied'],
         questions: []
     });
 
@@ -31,7 +32,7 @@ const ManageExam = () => {
                     setExam(examData);
                 }
             } catch (err) {
-                console.log('No existing exam found or error fetching');
+                console.log('No existing exam found or error fetching' ,err);
             } finally {
                 setLoading(false);
             }
@@ -42,7 +43,7 @@ const ManageExam = () => {
     const addQuestion = () => {
         setExam({
             ...exam,
-            questions: [...exam.questions, { text: '', type: 'MCQ', options: ['', '', '', ''], correctAnswer: '', marks: 1 }]
+            questions: [...exam.questions, { text: '', type: 'MCQ', options: ['', '', '', ''], correctAnswer: '', marks: 1, wordLimit: 500 }]
         });
     };
 
@@ -60,8 +61,8 @@ const ManageExam = () => {
 
     const handleRelease = async () => {
         try {
-            const res = await recruitmentService.releaseExam(id);
-            setExam({ ...exam, isReleased: res.data.isReleased });
+            const res = await recruitmentService.releaseExam(id, { targetAudience: exam.targetAudience });
+            setExam({ ...exam, isReleased: res.data.isReleased, targetAudience: res.data.targetAudience || exam.targetAudience });
             alert(res.message);
         } catch (err) {
             alert('Failed to release exam');
@@ -155,51 +156,111 @@ const ManageExam = () => {
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                                 </button>
 
-                                <textarea
-                                    placeholder="Question text"
-                                    value={q.text}
-                                    onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500"
-                                    required
-                                ></textarea>
+                                <div className="flex gap-4">
+                                    <select
+                                        value={q.type}
+                                        onChange={(e) => updateQuestion(qIndex, 'type', e.target.value)}
+                                        className="w-1/3 px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="MCQ">MCQ</option>
+                                        <option value="Objective">Objective</option>
+                                        <option value="Paragraph">Paragraph (Subjective)</option>
+                                    </select>
+                                    <textarea
+                                        placeholder="Question text"
+                                        value={q.text}
+                                        onChange={(e) => updateQuestion(qIndex, 'text', e.target.value)}
+                                        className="flex-1 px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                                        required
+                                    ></textarea>
+                                </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {q.options.map((opt, oIndex) => (
-                                        <div key={oIndex} className="flex items-center gap-2">
+                                {q.type !== 'Paragraph' ? (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {q.options.map((opt, oIndex) => (
+                                                <div key={oIndex} className="flex items-center gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder={`Option ${oIndex + 1}`}
+                                                        value={opt}
+                                                        onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
+                                                        className="flex-1 px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                        required
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <select
+                                                value={q.correctAnswer}
+                                                onChange={(e) => updateQuestion(qIndex, 'correctAnswer', e.target.value)}
+                                                className="px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                required
+                                            >
+                                                <option value="">Select Correct Answer</option>
+                                                {q.options.map((opt, oIndex) => opt && (
+                                                    <option key={oIndex} value={opt}>{opt}</option>
+                                                ))}
+                                            </select>
                                             <input
-                                                type="text"
-                                                placeholder={`Option ${oIndex + 1}`}
-                                                value={opt}
-                                                onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
-                                                className="flex-1 px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                type="number"
+                                                placeholder="Marks"
+                                                value={q.marks}
+                                                onChange={(e) => updateQuestion(qIndex, 'marks', e.target.value)}
+                                                className="px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Word Limit</label>
+                                            <input
+                                                type="number"
+                                                placeholder="Max words (e.g. 500)"
+                                                value={q.wordLimit || 500}
+                                                onChange={(e) => updateQuestion(qIndex, 'wordLimit', e.target.value)}
+                                                className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                                                 required
                                             />
                                         </div>
-                                    ))}
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <select
-                                        value={q.correctAnswer}
-                                        onChange={(e) => updateQuestion(qIndex, 'correctAnswer', e.target.value)}
-                                        className="px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                                        required
-                                    >
-                                        <option value="">Select Correct Answer</option>
-                                        {q.options.map((opt, oIndex) => opt && (
-                                            <option key={oIndex} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="number"
-                                        placeholder="Marks"
-                                        value={q.marks}
-                                        onChange={(e) => updateQuestion(qIndex, 'marks', e.target.value)}
-                                        className="px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                                    />
-                                </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Max Marks</label>
+                                            <input
+                                                type="number"
+                                                placeholder="Marks"
+                                                value={q.marks}
+                                                onChange={(e) => updateQuestion(qIndex, 'marks', e.target.value)}
+                                                className="w-full px-4 py-2 rounded-lg border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         ))}
+                    </div>
+
+                    <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 flex items-center justify-between">
+                        <div>
+                            <h4 className="font-bold text-indigo-900">Release Target Group</h4>
+                            <p className="text-sm text-indigo-700">Select which applicants can access this exam when released. Hold Ctrl/Cmd to select multiple.</p>
+                        </div>
+                        <select
+                            multiple
+                            value={exam.targetAudience || ['Applied']}
+                            onChange={(e) => {
+                                const options = Array.from(e.target.selectedOptions, option => option.value);
+                                setExam({ ...exam, targetAudience: options });
+                            }}
+                            className="px-4 py-2 rounded-xl border border-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500 h-24 bg-white min-w-[250px]"
+                        >
+                            <option value="Applied">All Applied (Round 1)</option>
+                            <option value="Shortlisted">Shortlisted Candidates (Round 2+)</option>
+                            <option value="Exam Attempted">Already Attempted (Retake)</option>
+                        </select>
                     </div>
 
                     <div className="flex gap-4">

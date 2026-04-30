@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { recruitmentService, clubService } from '../../services';
 import { useAuth } from '../../context';
 
 const CreateRecruitment = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const { id } = useParams();
+    const isEditMode = !!id;
     const [loading, setLoading] = useState(false);
     const [clubs, setClubs] = useState([]);
     const [error, setError] = useState(null);
@@ -57,10 +59,40 @@ const CreateRecruitment = () => {
                 }
             }
         };
+        
+
+        const fetchRecruitmentData = async () => {
+            try {
+                const res = await recruitmentService.getRecruitmentById(id);
+                if (res.data) {
+                    const recruit = res.data;
+                    setFormData({
+                        clubId: recruit.clubId,
+                        clubName: recruit.clubName,
+                        title: recruit.title,
+                        role: recruit.role,
+                        description: recruit.description,
+                        mode: recruit.mode,
+                        deadline: recruit.deadline ? new Date(recruit.deadline).toISOString().split('T')[0] : '',
+                        date: recruit.date ? new Date(recruit.date).toISOString().split('T')[0] : '',
+                        time: recruit.time,
+                        venue: recruit.venue || ''
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to fetch recruitment data', err);
+                setError('Failed to load recruitment details for editing.');
+            }
+        };
+
         if (user && user.id) {
-            fetchUserClub();
+            if (isEditMode) {
+                fetchRecruitmentData();
+            } else {
+                fetchUserClub();
+            }
         }
-    }, [user]);
+    }, [user, id, isEditMode]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -77,10 +109,14 @@ const CreateRecruitment = () => {
         setLoading(true);
         setError(null);
         try {
-            await recruitmentService.createRecruitment(formData);
+            if (isEditMode) {
+                await recruitmentService.updateRecruitment(id, formData);
+            } else {
+                await recruitmentService.createRecruitment(formData);
+            }
             navigate('/recruitment/manage');
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to create recruitment');
+            setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} recruitment`);
         } finally {
             setLoading(false);
         }
@@ -90,8 +126,8 @@ const CreateRecruitment = () => {
         <div className="max-w-4xl mx-auto p-6">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6">
-                    <h2 className="text-3xl font-bold text-white">Create Recruitment Event</h2>
-                    <p className="text-indigo-100 mt-2">Find the best talent for your club</p>
+                    <h2 className="text-3xl font-bold text-white">{isEditMode ? 'Edit Recruitment Event' : 'Create Recruitment Event'}</h2>
+                    <p className="text-indigo-100 mt-2">{isEditMode ? 'Update details for your recruitment drive' : 'Find the best talent for your club'}</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-6">
@@ -272,7 +308,7 @@ const CreateRecruitment = () => {
                                 : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:shadow-indigo-200'
                                 }`}
                         >
-                            {loading ? 'Creating...' : 'Launch Recruitment'}
+                            {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Recruitment' : 'Launch Recruitment')}
                         </button>
                     </div>
                 </form>
