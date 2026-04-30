@@ -16,6 +16,7 @@ const HomePage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [recruitments, setRecruitments] = useState([]);
+  const [myApplications, setMyApplications] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -92,6 +93,11 @@ const HomePage = () => {
           recruitmentArray = recruitmentArray.filter(r => r.status === 'Ongoing');
 
           setRecruitments(recruitmentArray.slice(0, 6)); // Show top 6
+          
+          if (user) {
+            const appsData = await recruitmentService.getMyApplications();
+            setMyApplications(appsData.data || []);
+          }
         } catch (recruitmentErr) {
           console.error('Failed to fetch recruitment data:', recruitmentErr);
           setRecruitments([]);
@@ -296,12 +302,40 @@ const HomePage = () => {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <Link to={`/recruitment/${rec._id}`} className="flex-1 text-center bg-purple-600 text-white py-2 rounded-lg font-medium hover:bg-purple-700 transition">
-                          Apply Now
+                        {(() => {
+                          const app = myApplications.find(a => a.recruitmentId === rec._id || (a.recruitment && a.recruitment._id === rec._id));
+                          if (app) {
+                            let statusClasses = "bg-gray-100 text-gray-500 border-gray-200";
+                            let statusText = "Applied";
+                            
+                            if (app.status === 'Selected') {
+                                statusClasses = "bg-green-100 text-green-800 border-green-200 shadow-sm";
+                                statusText = `🎉 Selected: ${app.selectionDetails?.assignedPosition || rec.role}`;
+                            } else if (app.status === 'Shortlisted') {
+                                statusClasses = "bg-indigo-100 text-indigo-800 border-indigo-200 shadow-sm";
+                                statusText = "✨ Shortlisted";
+                            } else if (app.status === 'Rejected') {
+                                statusClasses = "bg-red-50 text-red-500 border-red-100";
+                                statusText = "Not Selected";
+                            } else {
+                                statusText = "Applied";
+                            }
+
+                            return (
+                              <div className={`flex-1 flex flex-col items-center justify-center py-1 px-1 rounded-lg font-bold border text-xs text-center cursor-default ${statusClasses}`} title={`Status: ${app.status}`}>
+                                <span>{statusText}</span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <Link to={`/recruitment/${rec._id}`} className="flex-1 flex items-center justify-center bg-purple-600 text-white py-2 rounded-lg font-medium hover:bg-purple-700 transition shadow-sm hover:shadow-md">
+                              Apply Now
+                            </Link>
+                          );
+                        })()}
+                        <Link to={`/recruitment/${rec._id}`} className="flex-1 flex items-center justify-center bg-indigo-50 text-indigo-700 py-2 rounded-lg font-medium hover:bg-indigo-100 transition border border-indigo-100">
+                          View Details
                         </Link>
-                        <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center group-hover:border-purple-300 transition" title="Show Interest">
-                          <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-                        </button>
                       </div>
                     </div>
                   ))}

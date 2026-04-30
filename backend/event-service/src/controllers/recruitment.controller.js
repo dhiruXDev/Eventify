@@ -4,6 +4,7 @@ const RecruitmentApplication = require('../models/RecruitmentApplication');
 const userService = require('../services/userService');
 const nodemailer = require('nodemailer');
 const emailService = require('../utils/emailService');
+const Club = require('../models/Club');
 
 // Configure nodemailer (using dummy creds/env for now, similar to other services)
 const transporter = nodemailer.createTransport({
@@ -235,9 +236,14 @@ exports.getExam = async (req, res, next) => {
         // Get user's application to check their status
         const app = await RecruitmentApplication.findOne({ recruitmentId: req.params.id, userId: req.user.id });
 
+        const recruitment = await Recruitment.findById(req.params.id);
+        const isOrganizer = recruitment && recruitment.createdBy.toString() === req.user.id;
+        const isAdmin = req.user.role === 'admin';
+        const hasOrganizerRole = req.user.role === 'organizer';
+
         // Only organizers or if the exam is released AND user is in the target audience
         // Or if the user has ALREADY attempted the exam, let them view it for review!
-        if (req.user.role !== 'organizer') {
+        if (!isOrganizer && !isAdmin && !hasOrganizerRole) {
             const hasAttempted = app && app.examResponses && app.examResponses.length > 0;
             if (!hasAttempted) {
                 if (!exam.isReleased) {
@@ -583,16 +589,20 @@ exports.screenUsers = async (req, res, next) => {
  */
 exports.finalizeSelection = async (req, res, next) => {
     try {
-        const { selectedUserIds, venue, date, time, offlineNote } = req.body;
+        const { selectedUserIds, venue, date, time, offlineNote, selectionType, assignedPosition } = req.body;
 
         const recruitment = await Recruitment.findById(req.params.id);
+        const club = await Club.findById(recruitment.clubId);
+        const clubLogo = club ? club.logo : '';
+        
+        const finalStatus = selectionType === 'shortlist' ? 'Shortlisted' : 'Selected';
 
         // Update selected users
         await RecruitmentApplication.updateMany(
             { recruitmentId: req.params.id, userId: { $in: selectedUserIds } },
             {
-                status: 'Selected',
-                selectionDetails: { venue, date, time, offlineNote }
+                status: finalStatus,
+                selectionDetails: { venue, date, time, offlineNote, assignedPosition }
             }
         );
 
@@ -626,18 +636,24 @@ exports.finalizeSelection = async (req, res, next) => {
                         rejectedEmails,
                         `Update regarding ${recruitment.title} Selection`,
                         'Application Status',
-                        `We appreciate your interest in the <strong>${recruitment.title}</strong> role at <strong>${recruitment.clubName}</strong>. Following the final review, we regret to inform you that you have not been selected for this run.<br><br>Keep honing your skills and best of luck for future opportunities!`,
+                        `We appreciate your interest in the <strong>${recruitment.title}</strong> role at <strong>${recruitment.clubName}</strong>. Following the review, we regret to inform you that you have not been selected for the next phase.<br><br>Keep honing your skills and best of luck for future opportunities!`,
                         `${process.env.CLIENT_URL}/dashboard`,
-                        'View Dashboard'
+                        'View Dashboard',
+                        clubLogo,
+                        recruitment.clubName
                     );
                 });
             }
         }
 
         // Notify selected users
+        const { emailUserIds } = req.body;
+        // Default to all selectedUserIds if emailUserIds is not provided
+        const usersToEmail = Array.isArray(emailUserIds) ? emailUserIds : selectedUserIds;
+        
         const selectedApplications = await RecruitmentApplication.find({
             recruitmentId: req.params.id,
-            userId: { $in: selectedUserIds }
+            userId: { $in: usersToEmail }
         });
         
         if (selectedApplications.length > 0) {
@@ -650,17 +666,55 @@ exports.finalizeSelection = async (req, res, next) => {
 
             if (selectedEmails.length > 0) {
                 const customNoteHtml = offlineNote ? `<br><br><div style="background:#f4f4f5;padding:15px;border-left:4px solid #4f46e5;border-radius:5px;"><strong>Note from Organizer:</strong><br>${offlineNote.replace(/\n/g, '<br>')}</div>` : '';
+                
+                if (selectionType === 'shortlist') {
+                    const emailSubject = `Update: Shortlisted for ${recruitment.title} Next Round`;
+                    const emailTitle = 'You are Shortlisted!';
+                    const emailBody = `Congratulations! You have been shortlisted for the next round for the role at <strong>${recruitment.clubName}</strong>.<br><br><strong>Next Round Venue:</strong> ${venue}<br><strong>Date:</strong> ${new Date(date).toLocaleDateString()}<br><strong>Time:</strong> ${time}${customNoteHtml}`;
+                    
+                    setImmediate(() => {
+                        emailService.sendRecruitmentUpdate(
+                            selectedEmails,
+                            emailSubject,
+                            emailTitle,
+                            emailBody,
+                            `${process.env.CLIENT_URL}/dashboard`,
+                            'View My Status',
+                            clubLogo,
+                            recruitment.clubName
+                        );
+                    });
+                } else {
+                    // Final Selection - use personalized congrats email
+                    setImmediate(() => {
+                        selectedApplications.forEach(app => {
+                            const user = selUsersData[app.userId.toString()];
+                            const email = app.userEmail || (user ? user.email : null);
+                            
+                            if (email) {
+                                const name = user ? `${user.firstName} ${user.lastName}` : 'Student';
+                                const role = assignedPosition || recruitment.title;
+                                
+                                // Incorporate venue/date/time into the note if provided
+                                let finalNote = offlineNote || '';
+                                if (venue && date && time) {
+                                    const meetingDetails = `Meeting Venue: ${venue}\nDate: ${new Date(date).toLocaleDateString()}\nTime: ${time}`;
+                                    finalNote = finalNote ? `${meetingDetails}\n\n${finalNote}` : meetingDetails;
+                                }
 
-                setImmediate(() => {
-                    emailService.sendRecruitmentUpdate(
-                        selectedEmails,
-                        `Congratulations! Selection for ${recruitment.title}`,
-                        'You are Selected!',
-                        `We are pleased to inform you that you have been selected for the role at <strong>${recruitment.clubName}</strong>.<br><br><strong>Venue:</strong> ${venue}<br><strong>Date:</strong> ${new Date(date).toLocaleDateString()}<br><strong>Time:</strong> ${time}${customNoteHtml}`,
-                        `${process.env.CLIENT_URL}/dashboard`,
-                        'View My Status'
-                    );
-                });
+                                emailService.sendCongratsEmail(
+                                    email,
+                                    name,
+                                    role,
+                                    recruitment.clubName,
+                                    clubLogo,
+                                    `${process.env.CLIENT_URL}/dashboard`,
+                                    finalNote
+                                );
+                            }
+                        });
+                    });
+                }
             }
         }
 
@@ -676,6 +730,28 @@ exports.finalizeSelection = async (req, res, next) => {
         res.status(200).json({
             success: true,
             message: 'Selection finalized and emails sent'
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Delete Exam
+ * @route   DELETE /api/recruitment/:id/exam
+ * @access  Private (Organizer)
+ */
+exports.deleteExam = async (req, res, next) => {
+    try {
+        const exam = await Exam.findOneAndDelete({ recruitmentId: req.params.id });
+
+        if (!exam) {
+            return res.status(404).json({ success: false, message: 'Exam not found' });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Exam deleted successfully'
         });
     } catch (error) {
         next(error);

@@ -106,6 +106,11 @@ const recruitmentService = {
     evaluatePaper: async (id, appId, data) => {
         const response = await recruitmentApi.post(`/${id}/evaluate-paper/${appId}`, data);
         return response.data;
+    },
+
+    deleteExam: async (id) => {
+        const response = await recruitmentApi.delete(`/${id}/exam`);
+        return response.data;
     }
 };
 

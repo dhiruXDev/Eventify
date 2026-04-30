@@ -1,5 +1,6 @@
 const Event = require('../models/Event');
 const axios = require('axios');
+const crypto = require('crypto');
 
 /**
  * @desc    Create a new event
@@ -258,13 +259,16 @@ exports.registerForEvent = async (req, res, next) => {
     // Get registration details from request body
     const { specialRequirements, name, email } = req.body;
     
+    const qrToken = crypto.randomBytes(16).toString('hex');
+
     // Add user to participants
     event.participants.push({
       userId: req.user.id,
       name: name || `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || 'Participant', // Use provided name or default
       email: email || req.user.email || 'No email provided', // Use provided email or default
       college: req.user.college || 'No college', // Add college information
-      specialRequirements: specialRequirements || ''
+      specialRequirements: specialRequirements || '',
+      qrToken: qrToken
     });
     
     await event.save();
@@ -354,6 +358,268 @@ exports.getEventParticipants = async (req, res, next) => {
       success: true,
       count: event.participants.length,
       data: event.participants
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get QR Code for participant
+ * @route   GET /api/events/:id/qrcode
+ * @access  Private
+ */
+exports.getQrCode = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    const participant = event.participants.find(p => p.userId.toString() === req.user.id.toString());
+    if (!participant) return res.status(404).json({ success: false, message: 'You are not registered for this event' });
+    
+    // Check if qrToken exists, if not generate one (for backwards compatibility with old registrations)
+    if (!participant.qrToken) {
+      participant.qrToken = crypto.randomBytes(16).toString('hex');
+      await event.save();
+    }
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        eventId: event._id,
+        userId: req.user.id,
+        qrToken: participant.qrToken
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Scan QR Code for attendance
+ * @route   POST /api/events/:id/attendance/scan
+ * @access  Private (Volunteers, Organizers, Admins)
+ */
+exports.scanQrCode = async (req, res, next) => {
+  try {
+    const { qrToken } = req.body;
+    if (!qrToken) return res.status(400).json({ success: false, message: 'QR token is required' });
+    
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    // Check authorization: Admin, event creator, or volunteer
+    const isAuthorized = 
+      req.user.role === 'admin' ||
+      event.createdBy.toString() === req.user.id.toString() ||
+      (event.volunteers && event.volunteers.some(v => v.toString() === req.user.id.toString()));
+      
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized to scan QR codes for this event' });
+    }
+    
+    const participantIndex = event.participants.findIndex(p => p.qrToken === qrToken);
+    if (participantIndex === -1) {
+      return res.status(400).json({ success: false, message: 'Invalid QR token or participant not found in this event' });
+    }
+    
+    const participant = event.participants[participantIndex];
+    
+    if (participant.attended) {
+      return res.status(400).json({ success: false, message: 'Participant has already been marked as present' });
+    }
+    
+    event.participants[participantIndex].attended = true;
+    event.participants[participantIndex].scanTime = Date.now();
+    event.participants[participantIndex].scannedBy = req.user.id;
+    
+    await event.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully',
+      data: {
+        name: participant.name,
+        email: participant.email,
+        attended: true,
+        scanTime: event.participants[participantIndex].scanTime
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get Attendance History for a participant
+ * @route   GET /api/events/attendance/history
+ * @access  Private
+ */
+exports.getAttendanceHistory = async (req, res, next) => {
+  try {
+    // Find events where user is a participant
+    const events = await Event.find({ 'participants.userId': req.user.id }).sort({ date: -1 });
+    
+    const history = events.map(event => {
+      const participantInfo = event.participants.find(p => p.userId.toString() === req.user.id.toString());
+      return {
+        eventId: event._id,
+        title: event.title,
+        date: event.date,
+        location: event.location,
+        organizerName: event.organizerName,
+        attended: participantInfo ? participantInfo.attended : false,
+        certificateIssued: participantInfo ? participantInfo.certificateIssued : false,
+        certificateUrl: participantInfo ? participantInfo.certificateUrl : null
+      };
+    });
+    
+    res.status(200).json({
+      success: true,
+      count: history.length,
+      data: history
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get Scan History for a volunteer
+ * @route   GET /api/events/attendance/scans
+ * @access  Private
+ */
+exports.getScanHistory = async (req, res, next) => {
+  try {
+    // Find events where user is a volunteer or creator, and return the scans they performed
+    const events = await Event.find({ 'participants.scannedBy': req.user.id }).sort({ date: -1 });
+    
+    let scans = [];
+    events.forEach(event => {
+      const scannedParticipants = event.participants.filter(p => p.scannedBy && p.scannedBy.toString() === req.user.id.toString());
+      scannedParticipants.forEach(p => {
+        scans.push({
+          eventId: event._id,
+          eventTitle: event.title,
+          eventDate: event.date,
+          participantName: p.name,
+          participantEmail: p.email,
+          scanTime: p.scanTime
+        });
+      });
+    });
+    
+    // Sort scans by scanTime descending
+    scans.sort((a, b) => new Date(b.scanTime) - new Date(a.scanTime));
+    
+    res.status(200).json({
+      success: true,
+      count: scans.length,
+      data: scans
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get Attendance Stats for an event
+ * @route   GET /api/events/:id/attendance/stats
+ * @access  Private (Event creator or Admin only)
+ */
+exports.getAttendanceStats = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    const isAuthorized = event.createdBy.toString() === req.user.id.toString() || req.user.role === 'admin';
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    const totalParticipants = event.participants.length;
+    const attended = event.participants.filter(p => p.attended).length;
+    const absent = totalParticipants - attended;
+    
+    res.status(200).json({
+      success: true,
+      data: {
+        totalParticipants,
+        attended,
+        absent
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Assign volunteers to an event
+ * @route   POST /api/events/:id/volunteers
+ * @access  Private (Event creator or Admin only)
+ */
+exports.assignVolunteers = async (req, res, next) => {
+  try {
+    const { volunteerIds } = req.body;
+    if (!Array.isArray(volunteerIds)) {
+      return res.status(400).json({ success: false, message: 'volunteerIds must be an array' });
+    }
+    
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    const isAuthorized = event.createdBy.toString() === req.user.id.toString() || req.user.role === 'admin';
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    event.volunteers = volunteerIds;
+    await event.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Volunteers assigned successfully',
+      data: event.volunteers
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Release Certificates for an event
+ * @route   POST /api/events/:id/certificates/release
+ * @access  Private (Event creator or Admin only)
+ */
+exports.releaseCertificates = async (req, res, next) => {
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    const isAuthorized = event.createdBy.toString() === req.user.id.toString() || req.user.role === 'admin';
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    // Mark certificateIssued = true for all attended participants
+    let certificatesIssuedCount = 0;
+    event.participants.forEach((p, index) => {
+      if (p.attended && !p.certificateIssued) {
+        event.participants[index].certificateIssued = true;
+        certificatesIssuedCount++;
+      }
+    });
+    
+    await event.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Released certificates to ${certificatesIssuedCount} attended participants`,
+      data: {
+        issuedCount: certificatesIssuedCount
+      }
     });
   } catch (error) {
     next(error);

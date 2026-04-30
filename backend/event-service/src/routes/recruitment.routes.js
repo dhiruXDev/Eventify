@@ -18,7 +18,8 @@ router.get('/:id/my-application', protect, recruitmentController.getMyApplicatio
 
 router.route('/:id/exam')
     .get(protect, recruitmentController.getExam)
-    .post(protect, authorize('organizer', 'admin'), recruitmentController.setupExam);
+    .post(protect, authorize('organizer', 'admin'), recruitmentController.setupExam)
+    .delete(protect, authorize('organizer', 'admin'), recruitmentController.deleteExam);
 
 router.put('/:id/exam/release', protect, authorize('organizer', 'admin'), recruitmentController.toggleExamRelease);
 

@@ -25,7 +25,7 @@ const EvaluateExam = () => {
                 // Initialize default marks for Paragraph questions
                 const initialEvals = {};
                 if (app && app.examResponses) {
-                    app.examResponses.forEach(res => {
+                    (app.examResponses || []).forEach(res => {
                         if (res.marksObtained !== undefined && res.marksObtained !== null) {
                             initialEvals[res.questionIndex] = res.marksObtained;
                         } else {
@@ -58,7 +58,7 @@ const EvaluateExam = () => {
             
             await recruitmentService.evaluatePaper(id, appId, { manualMarks });
             alert('Evaluation saved successfully!');
-            navigate(`/recruitment/${id}/students`);
+            navigate(`/recruitment/registrations/${id}`);
         } catch (err) {
             alert('Failed to save evaluation');
             console.error(err);
@@ -77,14 +77,14 @@ const EvaluateExam = () => {
                     <h1 className="text-3xl font-black text-gray-900">Evaluate Paper: {application.userName}</h1>
                     <p className="text-gray-500">Current Total Marks: <span className="font-bold text-indigo-600">{application.totalMarks}</span> / {exam.totalMarks}</p>
                 </div>
-                <Link to={`/recruitment/${id}/students`} className="text-gray-500 hover:text-gray-800 font-bold">
+                <Link to={`/recruitment/registrations/${id}`} className="text-gray-500 hover:text-gray-800 font-bold">
                     ← Back to List
                 </Link>
             </div>
 
             <div className="space-y-6">
                 {exam.questions.map((q, index) => {
-                    const response = application.examResponses.find(r => r.questionIndex === index);
+                    const response = (application.examResponses || []).find(r => r.questionIndex === index);
                     const userAns = response ? response.answer : 'No answer provided';
                     const isParagraph = q.type === 'Paragraph';
 

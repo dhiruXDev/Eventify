@@ -98,7 +98,12 @@ const RecruitmentResponses = () => {
                                 </td>
                                 <td className="px-6 py-4">
                                     {app.status === 'Exam Attempted' && (
-                                        <button className="text-indigo-600 font-bold text-sm hover:underline">Review Paper</button>
+                                        <Link 
+                                            to={`/recruitment/${id}/evaluate/${app._id}`}
+                                            className="text-indigo-600 font-bold text-sm hover:underline"
+                                        >
+                                            Review Paper
+                                        </Link>
                                     )}
                                 </td>
                             </tr>

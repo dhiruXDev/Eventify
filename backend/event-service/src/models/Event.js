@@ -39,6 +39,10 @@ const eventSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Organizer name is required']
   },
+  volunteers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   participants: [{
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -51,7 +55,26 @@ const eventSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    specialRequirements: String
+    specialRequirements: String,
+    qrToken: {
+      type: String,
+      unique: true,
+      sparse: true // Allows multiple participants to not have a qrToken immediately if needed, but unique if exists
+    },
+    attended: {
+      type: Boolean,
+      default: false
+    },
+    scanTime: Date,
+    scannedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    certificateIssued: {
+      type: Boolean,
+      default: false
+    },
+    certificateUrl: String
   }],
   image: {
     type: String,

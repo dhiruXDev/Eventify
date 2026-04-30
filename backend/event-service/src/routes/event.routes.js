@@ -7,7 +7,14 @@ const {
   deleteEvent,
   registerForEvent,
   cancelRegistration,
-  getEventParticipants
+  getEventParticipants,
+  getQrCode,
+  scanQrCode,
+  getAttendanceHistory,
+  getScanHistory,
+  getAttendanceStats,
+  assignVolunteers,
+  releaseCertificates
 } = require('../controllers/event.controller');
 const {
   createReview,
@@ -40,6 +47,16 @@ router.delete('/:id/register', protect, cancelRegistration);
 
 // Participants route
 router.get('/:id/participants', protect, getEventParticipants); // Authorization check in controller
+
+// Attendance and Certificate routes
+router.get('/attendance/history', protect, getAttendanceHistory); // Get user's attendance history
+router.get('/attendance/scans', protect, getScanHistory); // Get volunteer's scan history
+
+router.get('/:id/qrcode', protect, getQrCode);
+router.post('/:id/attendance/scan', protect, scanQrCode);
+router.get('/:id/attendance/stats', protect, getAttendanceStats);
+router.post('/:id/volunteers', protect, authorize('organizer', 'admin'), assignVolunteers);
+router.post('/:id/certificates/release', protect, authorize('organizer', 'admin'), releaseCertificates);
 
 // Review routes
 router.get('/:eventId/reviews', getEventReviews); // Public - anyone can view reviews

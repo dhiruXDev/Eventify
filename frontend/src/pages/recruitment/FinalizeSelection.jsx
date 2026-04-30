@@ -8,12 +8,15 @@ const FinalizeSelection = () => {
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [cutoff, setCutoff] = useState(0);
+    const [emailUserIds, setEmailUserIds] = useState([]);
     const [selectionData, setSelectionData] = useState({
         selectedUserIds: [],
         venue: '',
         date: '',
         time: '',
-        offlineNote: ''
+        offlineNote: '',
+        selectionType: 'final',
+        assignedPosition: ''
     });
 
     useEffect(() => {
@@ -35,8 +38,10 @@ const FinalizeSelection = () => {
                         date: existingSelection.selectionDetails.date ? new Date(existingSelection.selectionDetails.date).toISOString().split('T')[0] : '',
                         time: existingSelection.selectionDetails.time || '',
                     }));
+                    setEmailUserIds(previouslySelected);
                 } else if (previouslySelected.length > 0) {
                      setSelectionData(prev => ({ ...prev, selectedUserIds: previouslySelected }));
+                     setEmailUserIds(previouslySelected);
                 }
             } catch (err) {
                 console.error(err);
@@ -61,20 +66,29 @@ const FinalizeSelection = () => {
 
     const toggleUserSelection = (userId) => {
         const selected = [...selectionData.selectedUserIds];
+        const emails = [...emailUserIds];
         const index = selected.indexOf(userId);
         if (index > -1) {
             selected.splice(index, 1);
+            const emailIndex = emails.indexOf(userId);
+            if (emailIndex > -1) emails.splice(emailIndex, 1);
         } else {
             selected.push(userId);
+            emails.push(userId);
         }
         setSelectionData({ ...selectionData, selectedUserIds: selected });
+        setEmailUserIds(emails);
     };
 
     const handleFinalize = async (e) => {
         e.preventDefault();
         if (selectionData.selectedUserIds.length === 0) return alert('Select at least one student');
+        
         try {
-            await recruitmentService.finalizeSelection(id, selectionData);
+            await recruitmentService.finalizeSelection(id, { 
+                ...selectionData, 
+                emailUserIds: selectionData.selectionType === 'final' ? emailUserIds : selectionData.selectedUserIds 
+            });
             alert('Selection finalized and emails sent!');
             navigate('/recruitment/manage');
         } catch (err) {
@@ -159,53 +173,116 @@ const FinalizeSelection = () => {
                             <h4 className="font-bold text-gray-700 mb-4">Selection Details (Sent to selected students)</h4>
                             <form onSubmit={handleFinalize} className="space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-sm font-semibold text-gray-600">Interview/Joining Venue</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g. Club Office, Hall 3"
-                                        value={selectionData.venue}
-                                        onChange={(e) => setSelectionData({ ...selectionData, venue: e.target.value })}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200"
-                                        required
-                                    />
+                                    <label className="text-sm font-semibold text-gray-600 block mb-1">Action Type</label>
+                                    <select
+                                        value={selectionData.selectionType}
+                                        onChange={(e) => setSelectionData({ ...selectionData, selectionType: e.target.value })}
+                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    >
+                                        <option value="shortlist">Shortlist for Next Round</option>
+                                        <option value="final">Make Final Selection</option>
+                                    </select>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-semibold text-gray-600">Date</label>
-                                        <input
-                                            type="date"
-                                            value={selectionData.date}
-                                            onChange={(e) => setSelectionData({ ...selectionData, date: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-200"
-                                            required
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-semibold text-gray-600">Time</label>
-                                        <input
-                                            type="time"
-                                            value={selectionData.time}
-                                            onChange={(e) => setSelectionData({ ...selectionData, time: e.target.value })}
-                                            className="w-full px-4 py-3 rounded-xl border border-gray-200"
-                                            required
-                                        />
-                                    </div>
-                                </div>
-                                <div className="space-y-2 text-left">
-                                    <label className="text-sm font-semibold text-gray-600">Custom Email Message (Offline note)</label>
-                                    <textarea
-                                        placeholder="e.g. Please bring your laptop and ID card..."
-                                        value={selectionData.offlineNote}
-                                        onChange={(e) => setSelectionData({ ...selectionData, offlineNote: e.target.value })}
-                                        className="w-full px-4 py-3 rounded-xl border border-gray-200 min-h-[80px]"
-                                    ></textarea>
-                                </div>
+                                
+                                {selectionData.selectionType === 'shortlist' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-gray-600">Interview/Joining Venue</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Club Office, Hall 3"
+                                                value={selectionData.venue}
+                                                onChange={(e) => setSelectionData({ ...selectionData, venue: e.target.value })}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200"
+                                                required
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-semibold text-gray-600">Date</label>
+                                                <input
+                                                    type="date"
+                                                    value={selectionData.date}
+                                                    onChange={(e) => setSelectionData({ ...selectionData, date: e.target.value })}
+                                                    className="w-full px-4 py-3 rounded-xl border border-gray-200"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-sm font-semibold text-gray-600">Time</label>
+                                                <input
+                                                    type="time"
+                                                    value={selectionData.time}
+                                                    onChange={(e) => setSelectionData({ ...selectionData, time: e.target.value })}
+                                                    className="w-full px-4 py-3 rounded-xl border border-gray-200"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2 text-left">
+                                            <label className="text-sm font-semibold text-gray-600">Custom Email Message (Offline note)</label>
+                                            <textarea
+                                                placeholder="e.g. Please bring your laptop and ID card..."
+                                                value={selectionData.offlineNote}
+                                                onChange={(e) => setSelectionData({ ...selectionData, offlineNote: e.target.value })}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200 min-h-[80px]"
+                                            ></textarea>
+                                        </div>
+                                    </>
+                                )}
+
+                                {selectionData.selectionType === 'final' && (
+                                    <>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-gray-600">Assigned Position (Optional)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Core Committee Member, Developer..."
+                                                value={selectionData.assignedPosition}
+                                                onChange={(e) => setSelectionData({ ...selectionData, assignedPosition: e.target.value })}
+                                                className="w-full px-4 py-3 rounded-xl border border-gray-200"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-gray-600">Select Students to Email</label>
+                                            <p className="text-xs text-gray-500 mb-2">Uncheck to mark as selected without sending an email.</p>
+                                            <div className="flex-1 overflow-y-auto border border-gray-200 rounded-xl p-3 max-h-60 space-y-2 bg-gray-50">
+                                                {applications.filter(a => selectionData.selectedUserIds.includes(a.userId)).map(user => (
+                                                    <label key={user.userId} className="flex items-center gap-3 p-2 hover:bg-white rounded-lg cursor-pointer border border-transparent hover:border-gray-200 shadow-sm transition">
+                                                        <input 
+                                                            type="checkbox"
+                                                            checked={emailUserIds.includes(user.userId)}
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setEmailUserIds([...emailUserIds, user.userId]);
+                                                                } else {
+                                                                    setEmailUserIds(emailUserIds.filter(id => id !== user.userId));
+                                                                }
+                                                            }}
+                                                            className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                                        />
+                                                        <div>
+                                                            <div className="font-bold text-gray-800 text-sm">{user.userName}</div>
+                                                            <div className="text-xs text-gray-500">{user.userEmail}</div>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                                {selectionData.selectedUserIds.length === 0 && (
+                                                    <p className="text-sm text-gray-400 text-center py-4">Select students from the left panel first.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
                                 <button
                                     type="submit"
                                     className="w-full py-4 bg-emerald-600 text-white rounded-xl font-bold text-lg hover:bg-emerald-700 shadow-lg mt-4 disabled:bg-gray-400"
                                     disabled={selectionData.selectedUserIds.length === 0}
                                 >
-                                    {isReFinalizing ? `Update ${selectionData.selectedUserIds.length} Selections` : `Finalize ${selectionData.selectedUserIds.length} Selections`}
+                                    {selectionData.selectionType === 'final' 
+                                        ? `Send ${emailUserIds.length} Emails & Finalize` 
+                                        : `Finalize ${selectionData.selectedUserIds.length} Selections`}
                                 </button>
                             </form>
                         </div>

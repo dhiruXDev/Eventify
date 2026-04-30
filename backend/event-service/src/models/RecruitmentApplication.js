@@ -39,7 +39,9 @@ const applicationSchema = new mongoose.Schema({
     selectionDetails: {
         venue: String,
         date: Date,
-        time: String
+        time: String,
+        offlineNote: String,
+        assignedPosition: String
     }
 });
 
