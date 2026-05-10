@@ -321,6 +321,7 @@ module.exports = app;
 const PORT = process.env.PORT || 8002;
 const server = app.listen(PORT, () => {
   console.log(`[EVENT-SERVICE] Server running on port ${PORT}`);
+  console.log(`[EVENT-SERVICE] VERSION: 1.0.1 - DEBUG ROUTES ACTIVE`);
   console.log(`[EVENT-SERVICE] Listening for club requests at /api/clubs`);
 });
 

@@ -17,7 +17,7 @@ const recruitmentSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['Organizer', 'Member', 'Volunteer'],
+        enum: ['Organizer', 'Member', 'Volunteer', 'Coordinator', 'Co-coordinator'],
         required: [true, 'Role is required']
     },
     description: {

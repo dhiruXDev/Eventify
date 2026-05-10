@@ -12,7 +12,7 @@ const ManageExam = () => {
         description: '',
         date: '',
         time: '',
-        duration: '30 Minute',
+        duration: 30,
         totalMarks: 0,
         cutoffMarks: 0,
         targetAudience: ['Applied'],

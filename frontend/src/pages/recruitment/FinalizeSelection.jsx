@@ -289,6 +289,32 @@ const FinalizeSelection = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Final Selected Students View */}
+            {applications.filter(a => a.status === 'Selected').length > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-6 bg-emerald-50 border-b border-emerald-100">
+                        <h3 className="text-xl font-bold text-emerald-900">Final Selected Students</h3>
+                        <p className="text-sm text-emerald-700 font-medium">These students have been officially selected and notified.</p>
+                    </div>
+                    <div className="p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {applications.filter(a => a.status === 'Selected').map(app => (
+                                <div key={app.userId} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between group">
+                                    <div>
+                                        <div className="font-bold text-gray-900">{app.userName}</div>
+                                        <div className="text-xs text-gray-500">{app.userEmail}</div>
+                                        <div className="mt-2 inline-block px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold">SELECTED</div>
+                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">
+                                        ✓
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

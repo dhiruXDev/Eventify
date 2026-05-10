@@ -3,12 +3,16 @@ const router = express.Router();
 const recruitmentController = require('../controllers/recruitment.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 
+// Static routes first
+router.get('/my-applications', protect, recruitmentController.getMyApplications);
+router.get('/all-selected', protect, authorize('organizer', 'admin'), recruitmentController.getAllSelectedStudents);
+
+// Root routes
 router.route('/')
     .post(protect, authorize('organizer', 'admin'), recruitmentController.createRecruitment)
     .get(recruitmentController.getAllRecruitments);
 
-router.get('/my-applications', protect, recruitmentController.getMyApplications);
-
+// Parameterized routes last
 router.route('/:id')
     .get(recruitmentController.getRecruitmentById)
     .put(protect, authorize('organizer', 'admin'), recruitmentController.updateRecruitment);

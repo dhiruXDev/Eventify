@@ -30,11 +30,19 @@ import {
   ExamAttemptPage,
   RegisteredStudents,
   EvaluateExam,
-  ExamReviewPage
+  ExamReviewPage,
+  SelectedStudentsPage,
+  CertificatePage,
+  AttendanceHistoryPage,
+  CertificatesListPage,
+  ClubConflictPage,
+  
 } from './pages';
+import AttendanceManagementPage from './pages/AttendanceManagementPage';
 import { ProtectedRoute } from './components/auth';
 import UIHomePage from './pages/UIHomePage';
 import AboutPage from './pages/AboutPage';
+import ClubInformation from "./pages/ClubInformation"
 
 function App() {
   return (
@@ -47,7 +55,6 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-
         {/* Public viewing routes (read-only) - Sidebar visible if logged in */}
         <Route path="/events" element={<ConditionalLayout />}>
           <Route index element={<EventsPage />} />
@@ -56,6 +63,9 @@ function App() {
 
         <Route path="/announcements" element={<ConditionalLayout />}>
           <Route index element={<AnnouncementsPage />} />
+        </Route>
+        <Route path="/club-info" element={<ConditionalLayout />}>
+          <Route index element={<ClubInformation />} />
         </Route>
 
         <Route path="/leaderboard" element={<ConditionalLayout />}>
@@ -67,6 +77,12 @@ function App() {
           <Route index element={<ClubDetailPage />} />
         </Route>
 
+        {/* Eskoo updat ekrna hai eskooo ko hata dena hai********** */}
+        <Route path="/club-conflict" element={<Layout />}>
+            <Route index element={<ClubConflictPage />} />
+          </Route>
+        {/* ******************************************************* */}
+        
         {/* Protected routes with layout */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Layout />}>
@@ -84,6 +100,9 @@ function App() {
             <Route index element={<OrganizerDashboardPage />} />
           </Route>
 
+          {/* Club Info */}
+
+
           {/* Protected Event Routes (create/edit) */}
           <Route path="/events/create" element={<Layout />}>
             <Route index element={<CreateEventPage />} />
@@ -96,6 +115,27 @@ function App() {
           <Route path="/profile" element={<Layout />}>
             <Route index element={<ProfilePage />} />
           </Route>
+
+          {/* Certificate Route */}
+          <Route path="/certificates/:eventId" element={<Layout />}>
+            <Route index element={<CertificatePage />} />
+          </Route>
+
+          {/* Participant Routes */}
+          <Route path="/attendance-history" element={<Layout />}>
+            <Route index element={<AttendanceHistoryPage />} />
+          </Route>
+          
+          <Route path="/my-certificates" element={<Layout />}>
+            <Route index element={<CertificatesListPage />} />
+          </Route>
+
+          {/* Attendance Management Dashboard Route */}
+          <Route path="/attendance" element={<Layout />}>
+            <Route index element={<AttendanceManagementPage />} />
+          </Route>
+
+    
 
           {/* Protected Announcement Routes (create/edit) */}
           <Route path="/announcements/create" element={<Layout />}>
@@ -129,6 +169,9 @@ function App() {
           </Route>
           <Route path="/recruitment/exam/:id" element={<Layout />}>
             <Route index element={<ManageExam />} />
+          </Route>
+          <Route path="/recruitment/selected" element={<Layout />}>
+            <Route index element={<SelectedStudentsPage />} />
           </Route>
           <Route path="/recruitment/responses/:id" element={<Layout />}>
             <Route index element={<RecruitmentResponses />} />

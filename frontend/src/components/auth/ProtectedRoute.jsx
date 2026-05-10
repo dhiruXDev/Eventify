@@ -39,7 +39,8 @@ const ProtectedRoute = () => {
       !location.pathname.includes('/settings') &&
       !location.pathname.includes('/system-settings') &&
       !location.pathname.includes('/recruitment') &&
-      !location.pathname.includes('/clubs')
+      !location.pathname.includes('/clubs') &&
+      !location.pathname.includes('/attendance')
     ) {
       return <Navigate to="/admindashboard" replace />;
     }
@@ -53,7 +54,8 @@ const ProtectedRoute = () => {
       !location.pathname.includes('/leaderboard') &&
       !location.pathname.includes('/settings') &&
       !location.pathname.includes('/recruitment') &&
-      !location.pathname.includes('/clubs')
+      !location.pathname.includes('/clubs') &&
+      !location.pathname.includes('/attendance')
     ) {
       return <Navigate to="/organizerdashboard" replace />;
     }

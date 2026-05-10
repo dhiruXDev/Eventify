@@ -4,7 +4,7 @@ const PlatformRating = require('../models/PlatformRating');
  * @desc    Create or update a platform rating
  * @route   POST /api/events/platform/rating
  * @access  Private (All authenticated users)
- */
+ */      
 exports.createPlatformRating = async (req, res, next) => {
   try {
     const { rating, comment, userName: bodyUserName, userPhoto: bodyUserPhoto } = req.body;

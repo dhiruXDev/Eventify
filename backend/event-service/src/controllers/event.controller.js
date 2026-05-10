@@ -1,6 +1,8 @@
 const Event = require('../models/Event');
+const Club = require('../models/Club');
 const axios = require('axios');
 const crypto = require('crypto');
+const { sendCertificateEmail } = require('../utils/emailService');
 
 /**
  * @desc    Create a new event
@@ -353,11 +355,52 @@ exports.getEventParticipants = async (req, res, next) => {
         message: 'Not authorized to view participants'
       });
     }
-    
+    // Build a map of existing participants to avoid duplicates and track attendance
+    const participantsMap = new Map();
+    event.participants.forEach(p => {
+      const key = p.email ? p.email.toLowerCase() : (p.name ? p.name.toLowerCase() : p._id.toString());
+      participantsMap.set(key, p.toObject ? p.toObject() : p);
+    });
+
+    // Find clubs where the event creator is an organizer
+    // Because club members belong to the organizer's club
+    try {
+      const clubs = await Club.find({ 'organizers.userId': event.createdBy });
+      
+      clubs.forEach(club => {
+        if (club.members && Array.isArray(club.members)) {
+          club.members.forEach(member => {
+            const key = member.email ? member.email.toLowerCase() : `${member.firstName} ${member.lastName}`.toLowerCase();
+            
+            if (!participantsMap.has(key)) {
+              // Add club member who hasn't registered
+              participantsMap.set(key, {
+                name: `${member.firstName || ''} ${member.lastName || ''}`.trim() || 'Club Member',
+                email: member.email || '',
+                college: member.branch || 'Club Member',
+                attended: false,
+                isClubMember: true,
+                clubName: club.name
+              });
+            } else {
+              // Update existing participant with club info
+              const existing = participantsMap.get(key);
+              existing.isClubMember = true;
+              existing.clubName = club.name;
+            }
+          });
+        }
+      });
+    } catch (clubErr) {
+      console.error('Error fetching clubs for participants merge:', clubErr);
+    }
+
+    const mergedParticipants = Array.from(participantsMap.values());
+
     res.status(200).json({
       success: true,
-      count: event.participants.length,
-      data: event.participants
+      count: mergedParticipants.length,
+      data: mergedParticipants
     });
   } catch (error) {
     next(error);
@@ -380,6 +423,7 @@ exports.getQrCode = async (req, res, next) => {
     // Check if qrToken exists, if not generate one (for backwards compatibility with old registrations)
     if (!participant.qrToken) {
       participant.qrToken = crypto.randomBytes(16).toString('hex');
+      event.markModified('participants');
       await event.save();
     }
     
@@ -409,31 +453,60 @@ exports.scanQrCode = async (req, res, next) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
     
-    // Check authorization: Admin, event creator, or volunteer
-    const isAuthorized = 
+    // Check authorization: Admin, event creator, volunteer, or club member
+    let isAuthorized = 
       req.user.role === 'admin' ||
       event.createdBy.toString() === req.user.id.toString() ||
       (event.volunteers && event.volunteers.some(v => v.toString() === req.user.id.toString()));
       
     if (!isAuthorized) {
+      // Check if user is an organizer or member of the club that owns this event
+      try {
+        const club = await Club.findOne({
+          name: event.organizerName,
+          $or: [
+            { 'organizers.userId': req.user.id },
+            { 'members.userId': req.user.id },
+            { 'members.email': req.user.email }
+          ]
+        });
+        if (club) isAuthorized = true;
+      } catch (e) {
+        console.error('Error checking club authorization:', e);
+      }
+    }
+      
+    if (!isAuthorized) {
       return res.status(403).json({ success: false, message: 'Not authorized to scan QR codes for this event' });
     }
     
-    const participantIndex = event.participants.findIndex(p => p.qrToken === qrToken);
+    const cleanToken = qrToken.trim();
+    const participantIndex = event.participants.findIndex(p => p.qrToken === cleanToken);
     if (participantIndex === -1) {
-      return res.status(400).json({ success: false, message: 'Invalid QR token or participant not found in this event' });
+      return res.status(400).json({ success: false, message: 'Invalid QR token or participant not found in this event. Ensure the correct event is selected.' });
     }
     
     const participant = event.participants[participantIndex];
     
     if (participant.attended) {
-      return res.status(400).json({ success: false, message: 'Participant has already been marked as present' });
+      return res.status(200).json({ 
+        success: true, 
+        alreadyScanned: true,
+        message: 'Participant has already been marked as present',
+        data: {
+          name: participant.name,
+          email: participant.email,
+          attended: true,
+          scanTime: participant.scanTime
+        }
+      });
     }
     
     event.participants[participantIndex].attended = true;
     event.participants[participantIndex].scanTime = Date.now();
     event.participants[participantIndex].scannedBy = req.user.id;
     
+    event.markModified('participants');
     await event.save();
     
     res.status(200).json({
@@ -461,14 +534,22 @@ exports.getAttendanceHistory = async (req, res, next) => {
     // Find events where user is a participant
     const events = await Event.find({ 'participants.userId': req.user.id }).sort({ date: -1 });
     
+    // Fetch all clubs to map logos and descriptions
+    const Club = require('../models/Club');
+    const clubs = await Club.find({});
+    
     const history = events.map(event => {
       const participantInfo = event.participants.find(p => p.userId.toString() === req.user.id.toString());
+      const club = clubs.find(c => c.name === event.organizerName);
+      
       return {
         eventId: event._id,
         title: event.title,
         date: event.date,
         location: event.location,
         organizerName: event.organizerName,
+        clubLogo: club ? club.logo : null,
+        clubDescription: club ? club.description : null,
         attended: participantInfo ? participantInfo.attended : false,
         certificateIssued: participantInfo ? participantInfo.certificateIssued : false,
         certificateUrl: participantInfo ? participantInfo.certificateUrl : null
@@ -619,6 +700,166 @@ exports.releaseCertificates = async (req, res, next) => {
       message: `Released certificates to ${certificatesIssuedCount} attended participants`,
       data: {
         issuedCount: certificatesIssuedCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Send Certificates via Email for an event
+ * @route   POST /api/events/:id/certificates/send
+ * @access  Private (Event creator or Admin only)
+ */
+exports.sendCertificates = async (req, res, next) => {
+  try {
+    const { participantIds } = req.body;
+    if (!Array.isArray(participantIds)) {
+      return res.status(400).json({ success: false, message: 'participantIds must be an array' });
+    }
+
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    const isAuthorized = event.createdBy.toString() === req.user.id.toString() || req.user.role === 'admin';
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    let sentCount = 0;
+    const participantsToSend = event.participants.filter(p => 
+      participantIds.includes(p.userId?.toString() || p._id?.toString()) && p.attended
+    );
+
+    // Send emails
+    for (const p of participantsToSend) {
+      if (p.email) {
+        await sendCertificateEmail(
+          p.email, 
+          p.name, 
+          event.title, 
+          event.date, 
+          event.organizerName || 'Univent Organizer', 
+          event._id
+        );
+        
+        // Update participant record
+        const pIndex = event.participants.findIndex(part => part._id.toString() === p._id.toString());
+        if (pIndex !== -1) {
+          event.participants[pIndex].certificateIssued = true;
+          event.participants[pIndex].certificateSent = true; // Track that it was actually sent
+        }
+        sentCount++;
+      }
+    }
+    
+    event.markModified('participants');
+    await event.save();
+    
+    res.status(200).json({
+      success: true,
+      message: `Successfully sent certificates to ${sentCount} participants`,
+      data: {
+        sentCount
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Manual Check-In for attendance
+ * @route   POST /api/events/:id/attendance/manual
+ * @access  Private (Volunteers, Organizers, Admins)
+ */
+exports.manualCheckIn = async (req, res, next) => {
+  try {
+    const { identifier } = req.body; // Can be email or name
+    if (!identifier) return res.status(400).json({ success: false, message: 'Identifier is required' });
+    
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ success: false, message: 'Event not found' });
+    
+    // Check authorization: Admin, event creator, volunteer, or club member
+    let isAuthorized = 
+      req.user.role === 'admin' ||
+      event.createdBy.toString() === req.user.id.toString() ||
+      (event.volunteers && event.volunteers.some(v => v.toString() === req.user.id.toString()));
+      
+    if (!isAuthorized) {
+      // Check if user is an organizer or member of the club that owns this event
+      try {
+        const club = await Club.findOne({
+          name: event.organizerName,
+          $or: [
+            { 'organizers.userId': req.user.id },
+            { 'members.userId': req.user.id },
+            { 'members.email': req.user.email }
+          ]
+        });
+        if (club) isAuthorized = true;
+      } catch (e) {
+        console.error('Error checking club authorization:', e);
+      }
+    }
+      
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Not authorized to mark attendance for this event' });
+    }
+    
+    const identifierLower = identifier.toLowerCase();
+    const participantIndex = event.participants.findIndex(p => 
+      (p.email && p.email.toLowerCase() === identifierLower) || 
+      (p.name && p.name.toLowerCase() === identifierLower)
+    );
+    
+    let participant;
+    if (participantIndex === -1) {
+      // Participant not officially registered, add them manually (e.g. Club Members)
+      participant = {
+        name: identifier,
+        email: identifier.includes('@') ? identifier : `${identifier.replace(/\s+/g, '').toLowerCase()}@manual.entry`,
+        college: 'Manual Entry / Club Member',
+        attended: true,
+        scanTime: Date.now(),
+        scannedBy: req.user.id
+      };
+      event.participants.push(participant);
+    } else {
+      participant = event.participants[participantIndex];
+      
+      if (participant.attended) {
+        return res.status(200).json({ 
+          success: true, 
+          alreadyScanned: true,
+          message: 'Participant has already been marked as present',
+          data: {
+            name: participant.name,
+            email: participant.email,
+            attended: true,
+            scanTime: participant.scanTime
+          }
+        });
+      }
+      
+      event.participants[participantIndex].attended = true;
+      event.participants[participantIndex].scanTime = Date.now();
+      event.participants[participantIndex].scannedBy = req.user.id;
+    }
+    
+    event.markModified('participants');
+    await event.save();
+    
+    res.status(200).json({
+      success: true,
+      message: 'Attendance marked successfully via manual check-in',
+      data: {
+        name: participant.name,
+        email: participant.email,
+        attended: true,
+        scanTime: event.participants[participantIndex].scanTime
       }
     });
   } catch (error) {

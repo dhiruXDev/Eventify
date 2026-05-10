@@ -74,6 +74,10 @@ const eventSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    certificateSent: {
+      type: Boolean,
+      default: false
+    },
     certificateUrl: String
   }],
   image: {

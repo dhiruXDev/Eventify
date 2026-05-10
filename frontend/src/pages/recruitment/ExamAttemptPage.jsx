@@ -9,14 +9,15 @@ const ExamAttemptPage = () => {
     const [responses, setResponses] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(null);
 
     useEffect(() => {
         const fetchExam = async () => {
             try {
                 const response = await recruitmentService.getExam(id);
                 setExam(response.data);
-                setTimeLeft(response.data.duration * 60);
+                const duration = parseInt(response.data.duration);
+                setTimeLeft(duration * 60);
                 // Initialize responses
                 setResponses(response.data.questions.map((_, i) => ({ questionIndex: i, answer: '' })));
             } catch (err) {
@@ -30,13 +31,15 @@ const ExamAttemptPage = () => {
     }, [id, navigate]);
 
     useEffect(() => {
+        if (timeLeft === null) return;
+
         if (timeLeft > 0) {
             const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
             return () => clearTimeout(timer);
         } else if (exam && timeLeft === 0 && !submitting) {
             handleSubmit();
         }
-    }, [timeLeft, exam]);
+    }, [timeLeft, exam, submitting]);
 
     const handleAnswer = (qIndex, answer) => {
         const newResponses = [...responses];
@@ -61,6 +64,7 @@ const ExamAttemptPage = () => {
     if (loading) return <div className="text-center p-20 font-bold text-indigo-600">Preparing your exam...</div>;
 
     const formatTime = (seconds) => {
+        if (seconds === null) return '--:--';
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         return `${m}:${s < 10 ? '0' : ''}${s}`;

@@ -93,11 +93,6 @@ const { populateOrganizers } = require('../services/userService');
 
 exports.createClub = async (req, res, next) => {
   try {
-    console.log('\n[CONTROLLER] ==========================================');
-    console.log('[CONTROLLER] createClub - START');
-    console.log('[CONTROLLER] User:', req.user ? { id: req.user.id, role: req.user.role } : 'NO USER');
-    console.log('[CONTROLLER] Body keys:', req.body ? Object.keys(req.body) : 'NO BODY');
-    console.log('[CONTROLLER] ==========================================\n');
 
     // Check authentication
     if (!req.user || !req.user.id) {
@@ -461,6 +456,37 @@ exports.updateClub = async (req, res, next) => {
       }
 
       console.log('[UPDATE-CLUB] Club updated successfully');
+
+      // Sync designations with User DB
+      try {
+        const mongoose = require('mongoose');
+        const usersCollection = mongoose.connection.collection('users');
+
+        if (updateData.members && Array.isArray(updateData.members)) {
+          for (const member of updateData.members) {
+            if (member.email && member.designation) {
+              await usersCollection.updateOne(
+                { email: member.email },
+                { $set: { clubDesignation: member.designation } }
+              );
+            }
+          }
+        }
+        
+        if (updateData.organizers && Array.isArray(updateData.organizers)) {
+          for (const org of updateData.organizers) {
+            if (org.userId && org.designation) {
+              await usersCollection.updateOne(
+                { _id: new mongoose.Types.ObjectId(org.userId) },
+                { $set: { clubDesignation: org.designation } }
+              );
+            }
+          }
+        }
+        console.log('[UPDATE-CLUB] Successfully synced designations to User DB');
+      } catch (dbErr) {
+        console.error('[UPDATE-CLUB] Failed to sync designations:', dbErr);
+      }
     } catch (updateError) {
       console.error('[UPDATE-CLUB] Database update error:', updateError.message);
       console.error('[UPDATE-CLUB] Error name:', updateError.name);
@@ -698,6 +724,13 @@ exports.getClubByOrganizer = async (req, res, next) => {
     if (!club) {
       club = await Club.findOne({
         'organizers.userId': userId
+      });
+    }
+
+    // Try finding by member email if provided in query
+    if (!club && req.query.email) {
+      club = await Club.findOne({
+        'members.email': req.query.email
       });
     }
 

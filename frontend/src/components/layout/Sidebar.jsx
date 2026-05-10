@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useContext } from 'react';
 import AuthContext from '../../context/AuthContext';
-
+ 
 const Sidebar = ({ isOpen, toggleSidebar }) => {
   const { logout, user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -11,10 +11,20 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
   const isAdmin = user && user.role === 'admin';
   const isOrganizer = user && user.role === 'organizer';
 
+  
   // Check if a route is active
   const isActive = (path) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
+    if (Array.isArray(path)) {
+      return path.some(p => {
+        if (p === '/dashboard' || p === '/admindashboard' || p === '/organizerdashboard') {
+          return location.pathname === p;
+        }
+        return location.pathname.startsWith(p);
+      });
+    }
+    
+    if (path === '/dashboard' || path === '/admindashboard' || path === '/organizerdashboard') {
+      return location.pathname === path;
     }
     return location.pathname.startsWith(path);
   };
@@ -51,8 +61,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             {/* Home/Dashboard - Visible to all users, active by default */}
             <li>
               <Link
-                to="/dashboard"
-                className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/dashboard')
+                to={isAdmin ? '/admindashboard' : isOrganizer ? '/organizerdashboard' : '/dashboard'}
+                className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive(['/admindashboard', '/dashboard', '/organizerdashboard'])
                     ? 'bg-green-600 text-white'
                     : 'text-gray-900 hover:bg-green-600 hover:text-white'
                   }`}
@@ -64,8 +74,25 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
               </Link>
             </li>
 
+{user?.role === 'organizer' && (
+  <li>
+    <Link
+      to="/club-info"
+      className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/club-info')
+        ? 'bg-green-600 text-white'
+        : 'text-gray-900 hover:bg-green-600 hover:text-white'
+        }`}
+    >
+      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+      </svg>
+      Club Info
+    </Link>
+  </li>
+)}
+
             {/* Admin Dashboard - Only visible to admins */}
-            {isAdmin && (
+            {/* {isAdmin && (
               <li>
                 <Link
                   to="/admindashboard"
@@ -80,10 +107,10 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   Admin Dashboard
                 </Link>
               </li>
-            )}
+            )} */}
 
             {/* Organizer Dashboard - Only visible to organizers */}
-            {isOrganizer && (
+            {/* {isOrganizer && (
               <li>
                 <Link
                   to="/organizerdashboard"
@@ -98,7 +125,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                   Organizer Dashboard
                 </Link>
               </li>
-            )}
+            )} */}
 
             {/* Events - Visible to all users */}
             <li>
@@ -147,6 +174,76 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                 Announcements
               </Link>
             </li>
+            
+            {/* Participant Event Features */}
+            {(!isAdmin && !isOrganizer) && (
+              <>
+                <li>
+                  <Link
+                    to="/attendance-history"
+                    className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/attendance-history')
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-900 hover:bg-green-600 hover:text-white'
+                      }`}
+                  >
+                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                    </svg>
+                    Attendance History
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/my-certificates"
+                    className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/my-certificates')
+                        ? 'bg-green-600 text-white'
+                        : 'text-gray-900 hover:bg-green-600 hover:text-white'
+                      }`}
+                  >
+                    <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                    </svg>
+                    Certificates
+                  </Link>
+                </li>
+              </>
+            )}
+
+            {/* Attendance Management - Visible to Organizers, Admins, Volunteers, and Club Members */}
+            {(isOrganizer || isAdmin || user?.role === 'volunteer' || user?.role === 'participant' || user?.role === 'member') && (
+              <li>
+                <Link
+                  to="/attendance"
+                  className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/attendance')
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-900 hover:bg-green-600 hover:text-white'
+                    }`}
+                >
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                  </svg>
+                  Attendance
+                </Link>
+              </li>
+            )}
+            
+            {/* Club Conflict - Visible to Organizers and Admins */}
+            {(isOrganizer || isAdmin) && (
+              <li>
+                <Link
+                  to="/club-conflict"
+                  className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/club-conflict')
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-900 hover:bg-green-600 hover:text-white'
+                    }`}
+                >
+                  <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                  </svg>
+                  Club Conflict
+                </Link>
+              </li>
+            )}
           </ul>
 
           {/* Recruitment Section - Only visible to organizers and admins */}
@@ -162,7 +259,8 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         : 'text-gray-900 hover:bg-green-600 hover:text-white'
                       }`}
                   >
-                    <span className="mr-3">➕</span>
+
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-square-pen-icon lucide-square-pen mr-3 font-bold"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
                     Create Recruitment
                   </Link>
                 </li>
@@ -174,20 +272,19 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
                         : 'text-gray-900 hover:bg-green-600 hover:text-white'
                       }`}
                   >
-                    <span className="mr-3">📝</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-kanban-icon lucide-folder-kanban mr-3 font-bold"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><path d="M8 10v4"/><path d="M12 10v2"/><path d="M16 10v6"/></svg>
                     Manage Exams
                   </Link>
                 </li>
                 <li>
                   <Link
-                    to="/recruitment/manage"
-                    className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/recruitment/finalize')
+                    to="/recruitment/selected"
+                    className={`flex items-center px-4 py-3 rounded-md mx-2 transition-all duration-200 ${isActive('/recruitment/selected')
                         ? 'bg-green-600 text-white'
                         : 'text-gray-900 hover:bg-green-600 hover:text-white'
                       }`}
-                  >
-                    <span className="mr-3">✅</span>
-                    Selected List
+                  >          
+                       <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-check-icon lucide-user-check mr-3 font-bold"><path d="m16 11 2 2 4-4"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>                    Selected List
                   </Link>
                 </li>
               </ul>

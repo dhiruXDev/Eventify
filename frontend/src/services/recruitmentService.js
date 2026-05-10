@@ -111,6 +111,11 @@ const recruitmentService = {
     deleteExam: async (id) => {
         const response = await recruitmentApi.delete(`/${id}/exam`);
         return response.data;
+    },
+    
+    getAllSelectedStudents: async () => {
+        const response = await recruitmentApi.get('/all-selected');
+        return response.data;
     }
 };
 

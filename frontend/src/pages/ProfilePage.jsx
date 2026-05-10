@@ -6,27 +6,11 @@ import { authService } from '../services';
 import { setUser } from '../redux/slices/authSlice';
 import PlatformRatingForm from '../components/ratings/PlatformRatingForm';
 import ClubInfo from '../components/clubs/ClubInfo';
-import { recruitmentService } from '../services';
+import { recruitmentService, eventService, clubService } from '../services';
 import { Link } from 'react-router-dom';
 
-const UserBadges = () => {
-  const [selections, setSelections] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchSelections = async () => {
-      try {
-        const res = await recruitmentService.getMyApplications();
-        const selected = res.data.filter(app => app.status === 'Selected');
-        setSelections(selected);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSelections();
-  }, []);
+const UserBadges = ({ selections, loading }) => {
+  if (loading || !selections || selections.length === 0) return null;
 
   if (loading || selections.length === 0) return null;
 
@@ -95,7 +79,17 @@ const RecruitmentApplicationsList = () => {
                   }`}>
                   {app.status}
                 </span>
-                <Link to={`/recruitment/${app.recruitmentId}`} className="text-xs font-bold text-indigo-600 hover:underline">View Details</Link>
+                <div className="flex gap-2">
+                  <Link to={`/recruitment/${app.recruitmentId}`} className="text-xs font-bold text-indigo-600 hover:underline">View Details</Link>
+                  {app.recruitment?.mode === 'Online' && app.isExamReleased && ['Applied', 'Shortlisted'].includes(app.status) && (
+                    <Link 
+                      to={`/recruitment/attempt-exam/${app.recruitmentId}`} 
+                      className="text-xs font-bold text-green-600 hover:underline"
+                    >
+                      • Launch Exam
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
           ))}
@@ -104,6 +98,7 @@ const RecruitmentApplicationsList = () => {
     </div>
   );
 };
+
 
 const ProfilePage = () => {
   const { user } = useAuth();
@@ -123,17 +118,13 @@ const ProfilePage = () => {
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
+  const [userSelections, setUserSelections] = useState([]);
+  const [myClub, setMyClub] = useState(null);
+  const [selectionsLoading, setSelectionsLoading] = useState(true);
 
-  // Redirect if user is not logged in
+  // Fetch user profile data and their selections
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
-  }, [user, navigate]);
-
-  // Fetch user profile data
-  useEffect(() => {
-    const fetchProfileData = async () => {
+    const fetchProfileAndSelections = async () => {
       if (!user) return;
 
       try {
@@ -154,10 +145,39 @@ const ProfilePage = () => {
       } finally {
         setLoading(false);
       }
+
+      try {
+        setSelectionsLoading(true);
+        const res = await recruitmentService.getMyApplications();
+        const selected = res.data.filter(app => app.status === 'Selected');
+        setUserSelections(selected);
+        
+        // Also fetch club data to see if they were manually added
+        try {
+          const clubRes = await clubService.getClubByOrganizer(response.user._id || response.user.id, response.user.email);
+          if (clubRes && clubRes.data) {
+            setMyClub(clubRes.data);
+          }
+        } catch (e) {
+          // Ignore if no club found
+        }
+        
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setSelectionsLoading(false);
+      }
     };
 
-    fetchProfileData();
+    fetchProfileAndSelections();
   }, [user]);
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+
 
   // Handle form input changes
   const handleInputChange = (e) => {
@@ -410,10 +430,50 @@ const ProfilePage = () => {
                     <h2 className="text-xl font-semibold text-gray-800">
                       {profileData.firstName} {profileData.lastName}
                     </h2>
-                    <span className={`mt-2 py-1 px-3 rounded-full text-xs ${profileData.role === 'admin' ? 'bg-purple-200 text-purple-800' : profileData.role === 'organizer' ? 'bg-blue-200 text-blue-800' : 'bg-green-200 text-green-800'}`}>
-                      {profileData.role.charAt(0).toUpperCase() + profileData.role.slice(1)}
-                    </span>
-                    <UserBadges />
+                    {(() => {
+                      let displayRole = profileData.role.charAt(0).toUpperCase() + profileData.role.slice(1);
+                      let isClubRole = false;
+                      let clubName = '';
+                      
+                      if (profileData.role === 'participant') {
+                        if (userSelections.length > 0) {
+                          displayRole = userSelections[0].recruitment?.role || 'Member';
+                          isClubRole = true;
+                          clubName = userSelections[0].recruitment?.clubName || '';
+                        } else if (myClub) {
+                          const userId = user.id || user._id;
+                          const org = myClub.organizers?.find(o => o.userId?._id === userId || o.userId === userId || o.userId?.toString() === userId);
+                          if (org) {
+                            displayRole = org.designation || 'Organizer';
+                            isClubRole = true;
+                            clubName = myClub.name;
+                          } else {
+                            const mem = myClub.members?.find(m => m.email === profileData.email);
+                            if (mem) {
+                              displayRole = mem.designation || 'Member';
+                              isClubRole = true;
+                              clubName = myClub.name;
+                            }
+                          }
+                        }
+                      }
+                      
+                      return (
+                        <div className={`mt-4 w-full max-w-[280px] group relative overflow-hidden rounded-xl p-1 transition-all duration-300 hover:shadow-[0_0_20px_rgba(16,185,129,0.4)] ${isClubRole ? 'bg-gradient-to-r from-emerald-400 via-teal-500 to-emerald-600' : profileData.role === 'admin' ? 'bg-gradient-to-r from-purple-400 to-indigo-500' : profileData.role === 'organizer' ? 'bg-gradient-to-r from-blue-400 to-cyan-500' : 'bg-gradient-to-r from-green-400 to-emerald-500'}`}>
+                          <div className="bg-white rounded-[8px] px-6 py-4 flex flex-col items-center justify-center h-full w-full transition-all duration-300 group-hover:bg-opacity-90">
+                            <span className={`text-2xl md:text-3xl font-black tracking-wide uppercase bg-clip-text text-transparent ${isClubRole ? 'bg-gradient-to-r from-emerald-600 to-teal-700' : profileData.role === 'admin' ? 'bg-gradient-to-r from-purple-600 to-indigo-700' : profileData.role === 'organizer' ? 'bg-gradient-to-r from-blue-600 to-cyan-700' : 'bg-gradient-to-r from-green-600 to-emerald-700'}`}>
+                              {displayRole}
+                            </span>
+                            {isClubRole && clubName && (
+                              <span className="text-xs md:text-sm font-bold text-gray-500 mt-1 uppercase tracking-widest text-center">
+                                @ {clubName}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <UserBadges selections={userSelections} loading={selectionsLoading} />
                   </div>
                 </div>
 

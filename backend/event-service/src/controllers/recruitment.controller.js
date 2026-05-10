@@ -67,6 +67,20 @@ exports.getAllRecruitments = async (req, res, next) => {
  */
 exports.getRecruitmentById = async (req, res, next) => {
     try {
+        // Fallback check if route matching fails
+        if (req.params.id === 'all-selected') {
+            console.log('[RECRUITMENT] Route fallback: all-selected hit getRecruitmentById');
+            return exports.getAllSelectedStudents(req, res, next);
+        }
+
+        const mongoose = require('mongoose');
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            console.log('[RECRUITMENT] Invalid ID format:', req.params.id);
+            return res.status(404).json({ 
+                success: false, 
+                message: `Recruitment not found. The ID provided (${req.params.id}) is not a valid format.` 
+            });
+        }
 
         const recruitment = await Recruitment.findById(req.params.id);
         if (!recruitment) {
@@ -151,6 +165,83 @@ exports.getRecruitmentApplications = async (req, res, next) => {
 };
 
 /**
+ * @desc    Get all selected students for all recruitments of an organizer
+ * @route   GET /api/recruitment/all-selected
+ * @access  Private (Organizer/Admin)
+ */
+exports.getAllSelectedStudents = async (req, res, next) => {
+    try {
+        console.log('[RECRUITMENT] getAllSelectedStudents called by:', req.user.id, 'Role:', req.user.role);
+        const userId = req.user.id;
+        
+        // 1. Find all recruitments created by this user
+        const query = req.user.role === 'admin' ? {} : { createdBy: userId };
+        const recruitments = await Recruitment.find(query);
+        console.log(`[RECRUITMENT] Found ${recruitments.length} recruitments`);
+        
+        const recruitmentIds = recruitments.map(r => r._id);
+
+        if (recruitmentIds.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
+        // 2. Find all 'Selected' applications for these recruitments
+        const applications = await RecruitmentApplication.find({
+            recruitmentId: { $in: recruitmentIds },
+            status: 'Selected'
+        }).lean();
+        console.log(`[RECRUITMENT] Found ${applications.length} selected applications`);
+
+        if (applications.length === 0) {
+            return res.status(200).json({
+                success: true,
+                data: []
+            });
+        }
+
+        // 3. Fetch user details (photos) from auth-service
+        const userIds = applications.map(app => app.userId);
+        const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+        const userMap = await userService.getUsersByIds(userIds, token);
+
+        // 4. Group applications by recruitment
+        const groupedData = recruitments.map(rec => {
+            const recApps = applications.filter(app => app.recruitmentId.toString() === rec._id.toString());
+            
+            if (recApps.length === 0) return null;
+
+            return {
+                recruitmentId: rec._id,
+                recruitmentTitle: rec.title,
+                clubName: rec.clubName,
+                selectedCount: recApps.length,
+                students: recApps.map(app => {
+                    const userData = userMap[app.userId.toString()];
+                    return {
+                        ...app,
+                        userPhoto: userData?.photo || null,
+                        userFirstName: userData?.firstName || 'Student',
+                        userLastName: userData?.lastName || ''
+                    };
+                })
+            };
+        }).filter(Boolean);
+
+        res.status(200).json({
+            success: true,
+            count: applications.length,
+            data: groupedData
+        });
+    } catch (error) {
+        console.error('[RECRUITMENT] ERROR in getAllSelectedStudents:', error);
+        next(error);
+    }
+};
+
+/**
  * @desc    Get my application status
  * @route   GET /api/recruitment/:id/my-application
  * @access  Private
@@ -181,12 +272,16 @@ exports.getMyApplications = async (req, res, next) => {
             userId: req.user.id
         });
 
-        // Populate recruitment details
+        // Populate recruitment and exam details
         const enrichedApplications = await Promise.all(applications.map(async (app) => {
             const recruitment = await Recruitment.findById(app.recruitmentId);
+            const exam = await Exam.findOne({ recruitmentId: app.recruitmentId });
+            
             return {
                 ...app._doc,
-                recruitment
+                recruitment,
+                isExamReleased: exam ? exam.isReleased : false,
+                examId: exam ? exam._id : null
             };
         }));
 
@@ -284,6 +379,38 @@ exports.toggleExamRelease = async (req, res, next) => {
         }
 
         await exam.save();
+
+        // Notify applicants if released
+        if (exam.isReleased) {
+            const recruitment = await Recruitment.findById(req.params.id);
+            const targetStatus = exam.targetAudience || ['Applied'];
+            const applicants = await RecruitmentApplication.find({ 
+                recruitmentId: req.params.id,
+                status: { $in: targetStatus }
+            });
+            
+            const userIds = applicants.map(app => app.userId);
+            const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+            const users = await userService.getUsersByIds(userIds, token);
+
+            const applicantEmails = applicants.map(app => {
+                const user = users[app.userId.toString()];
+                return app.userEmail || (user ? user.email : null);
+            }).filter(Boolean);
+
+            if (applicantEmails.length > 0) {
+                setImmediate(() => {
+                    emailService.sendRecruitmentUpdate(
+                        applicantEmails,
+                        `Exam Released: ${recruitment.title}`,
+                        'Online Exam is Now Live!',
+                        `The online exam for <strong>${recruitment.title}</strong> has been released and is now active.<br><br><strong>Duration:</strong> ${exam.duration} minutes<br>Please complete the exam before the link is retracted.`,
+                        `${process.env.CLIENT_URL}/recruitment/attempt-exam/${recruitment._id}`,
+                        'Start Exam Now'
+                    );
+                });
+            }
+        }
 
         res.status(200).json({
             success: true,
@@ -396,8 +523,8 @@ exports.setupExam = async (req, res, next) => {
                     `Exam Details: ${recruitment.title}`,
                     'Online Exam Scheduled',
                     `The online exam for <strong>${recruitment.title}</strong> has been scheduled.<br><br><strong>Date:</strong> ${new Date(exam.date).toLocaleDateString()}<br><strong>Time:</strong> ${exam.time}<br><strong>Duration:</strong> ${exam.duration} minutes`,
-                    `${process.env.CLIENT_URL}/dashboard`,
-                    'View My Status'
+                    `${process.env.CLIENT_URL}/recruitment/attempt-exam/${recruitment._id}`,
+                    'Launch Exam'
                 );
             });
         }
@@ -605,6 +732,56 @@ exports.finalizeSelection = async (req, res, next) => {
                 selectionDetails: { venue, date, time, offlineNote, assignedPosition }
             }
         );
+
+        if (selectionType !== 'shortlist' && club) {
+            try {
+                const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
+                const usersData = await userService.getUsersByIds(selectedUserIds, token);
+                let clubUpdated = false;
+                if (!club.members) club.members = [];
+                
+                const axios = require('axios');
+                const { getUsersByIds } = require('../services/userService');
+                const mongoose = require('mongoose');
+                const usersCollection = mongoose.connection.collection('users');
+
+                for (const uid of selectedUserIds) {
+                    const user = usersData[uid.toString()];
+                    if (user) {
+                        const designation = assignedPosition || recruitment.title || 'Member';
+                        const existingIdx = club.members.findIndex(m => m.email === user.email);
+                        
+                        if (existingIdx === -1) {
+                            club.members.push({
+                                userId: user._id,
+                                firstName: user.firstName,
+                                lastName: user.lastName,
+                                email: user.email,
+                                designation: designation,
+                                photo: user.photo || ''
+                            });
+                            clubUpdated = true;
+                        } else {
+                            club.members[existingIdx].designation = designation;
+                            clubUpdated = true;
+                        }
+
+                        // Sync to User DB
+                        try {
+                            await usersCollection.updateOne(
+                                { email: user.email },
+                                { $set: { clubDesignation: designation } }
+                            );
+                        } catch (dbErr) {
+                            console.error('Failed to sync to user db', dbErr);
+                        }
+                    }
+                }
+                if (clubUpdated) await club.save();
+            } catch (err) {
+                console.error('Error syncing members to club:', err);
+            }
+        }
 
         // Update newly rejected users (those who were Shortlisted OR Selected but are no longer in selectedUserIds)
         // This handles re-finalization where an organizer unchecks someone

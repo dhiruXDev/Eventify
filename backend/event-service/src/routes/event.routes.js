@@ -14,7 +14,9 @@ const {
   getScanHistory,
   getAttendanceStats,
   assignVolunteers,
-  releaseCertificates
+  releaseCertificates,
+  sendCertificates,
+  manualCheckIn
 } = require('../controllers/event.controller');
 const {
   createReview,
@@ -32,42 +34,45 @@ const { protect, authorize } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
+// Attendance and Certificate routes (MUST come before :id routes)
+router.get('/attendance/history', protect, getAttendanceHistory);
+router.get('/attendance/scans', protect, getScanHistory);
+router.post('/:id/certificates/release', protect, authorize('organizer', 'admin'), releaseCertificates);
+router.post('/:id/certificates/send', protect, authorize('organizer', 'admin'), sendCertificates);
+
 // Public routes
 router.get('/', getAllEvents);
 router.get('/:id', getEventById);
 
-// Protected routes (require authentication)
+// Protected routes
 router.post('/', protect, authorize('organizer', 'admin'), createEvent);
-router.put('/:id', protect, updateEvent); // Authorization check in controller
-router.delete('/:id', protect, deleteEvent); // Authorization check in controller
+router.put('/:id', protect, updateEvent);
+router.delete('/:id', protect, deleteEvent);
 
 // Registration routes
 router.post('/:id/register', protect, registerForEvent);
 router.delete('/:id/register', protect, cancelRegistration);
 
 // Participants route
-router.get('/:id/participants', protect, getEventParticipants); // Authorization check in controller
+router.get('/:id/participants', protect, getEventParticipants);
 
-// Attendance and Certificate routes
-router.get('/attendance/history', protect, getAttendanceHistory); // Get user's attendance history
-router.get('/attendance/scans', protect, getScanHistory); // Get volunteer's scan history
-
+// QR and Attendance scanning
 router.get('/:id/qrcode', protect, getQrCode);
 router.post('/:id/attendance/scan', protect, scanQrCode);
+router.post('/:id/attendance/manual', protect, manualCheckIn);
 router.get('/:id/attendance/stats', protect, getAttendanceStats);
 router.post('/:id/volunteers', protect, authorize('organizer', 'admin'), assignVolunteers);
-router.post('/:id/certificates/release', protect, authorize('organizer', 'admin'), releaseCertificates);
 
 // Review routes
-router.get('/:eventId/reviews', getEventReviews); // Public - anyone can view reviews
-router.get('/:eventId/reviews/my-review', protect, getMyReview); // Get user's own review
-router.post('/:eventId/reviews', protect, createReview); // Create or update review
-router.delete('/:eventId/reviews/:reviewId', protect, deleteReview); // Delete review
+router.get('/:eventId/reviews', getEventReviews);
+router.get('/:eventId/reviews/my-review', protect, getMyReview);
+router.post('/:eventId/reviews', protect, createReview);
+router.delete('/:eventId/reviews/:reviewId', protect, deleteReview);
 
 // Platform rating routes
-router.get('/platform/ratings', getPlatformRatings); // Public - anyone can view platform ratings
-router.get('/platform/rating/my-rating', protect, getMyPlatformRating); // Get user's own platform rating
-router.post('/platform/rating', protect, createPlatformRating); // Create or update platform rating
-router.delete('/platform/rating/:ratingId', protect, deletePlatformRating); // Delete platform rating
+router.get('/platform/ratings', getPlatformRatings);
+router.get('/platform/rating/my-rating', protect, getMyPlatformRating);
+router.post('/platform/rating', protect, createPlatformRating);
+router.delete('/platform/rating/:ratingId', protect, deletePlatformRating);
 
 module.exports = router;

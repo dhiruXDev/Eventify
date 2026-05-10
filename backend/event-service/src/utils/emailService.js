@@ -350,3 +350,73 @@ exports.sendCongratsEmail = async (
     console.error("❌ Email congrats failed:", error);
   }
 };
+
+/**
+ * Send Certificate Email
+ */
+exports.sendCertificateEmail = async (email, name, eventName, date, organizerName, eventId) => {
+    if (!email) return;
+
+    const certificateUrl = `${process.env.CLIENT_URL}/certificates/${eventId}`;
+    const logoUrl = process.env.LOGO_URL || "https://eventify.vercel.app/NavbarLogo.png";
+
+    try {
+        const mailOptions = {
+            from: `"Eventify Certificates" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: `Participation Certificate: ${eventName}`,
+            html: `<!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Certificate of Participation</title>
+                <style>
+                    body { margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Arial, sans-serif; }
+                    .container { max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); overflow: hidden; border: 1px solid #e2e8f0; }
+                    .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 40px 20px; text-align: center; color: #ffffff; }
+                    .content { padding: 40px; text-align: center; }
+                    .certificate-icon { font-size: 64px; margin-bottom: 20px; }
+                    .title { font-size: 24px; font-weight: bold; color: #1e293b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+                    .name { font-size: 28px; font-weight: 800; color: #2563eb; margin: 20px 0; border-bottom: 2px solid #e2e8f0; display: inline-block; padding-bottom: 5px; }
+                    .event-name { font-size: 20px; font-weight: 600; color: #334155; margin-bottom: 10px; }
+                    .date { font-size: 16px; color: #64748b; margin-bottom: 30px; }
+                    .btn { display: inline-block; padding: 16px 32px; background-color: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold; transition: background-color 0.2s; }
+                    .footer { background-color: #f1f5f9; padding: 20px; text-align: center; color: #64748b; font-size: 13px; border-top: 1px solid #e2e8f0; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <img src="${logoUrl}" alt="Eventify" style="max-width: 120px; margin-bottom: 15px; filter: brightness(0) invert(1);" />
+                        <h1 style="margin: 0; font-size: 22px;">Certificate of Participation</h1>
+                    </div>
+                    <div class="content">
+                        <div class="certificate-icon">🎓</div>
+                        <p style="color: #64748b; margin-bottom: 5px;">This is to certify that</p>
+                        <div class="name">${name}</div>
+                        <p style="color: #64748b; margin-bottom: 5px;">has successfully participated in</p>
+                        <div class="event-name">${eventName}</div>
+                        <div class="date">held on ${new Date(date).toLocaleDateString()}</div>
+                        
+                        <p style="color: #475569; margin-bottom: 25px; line-height: 1.6;">
+                            Congratulations on your achievement! You can view and download your official digital certificate by clicking the button below.
+                        </p>
+                        
+                        <a href="${certificateUrl}" class="btn">View Certificate</a>
+                    </div>
+                    <div class="footer">
+                        <p>Issued by <strong>${organizerName}</strong> via Eventify</p>
+                        <p style="margin-top: 10px;">© ${new Date().getFullYear()} Eventify. All rights reserved.</p>
+                    </div>
+                </div>
+            </body>
+            </html>`
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ Certificate email sent to ${email}`);
+    } catch (error) {
+        console.error("❌ Certificate email failed:", error);
+    }
+};

@@ -74,15 +74,16 @@ const clubService = {
     }
   },
 
-  // Get club by organizer user ID
-  getClubByOrganizer: async (userId) => {
+  // Get club by organizer user ID or member email
+  getClubByOrganizer: async (userId, email = '') => {
     try {
       if (!userId) {
         throw new Error('User ID is required');
       }
       // Ensure userId is a string
       const userIdStr = String(userId);
-       const response = await clubApi.get(`/organizer/${userIdStr}`);
+      const url = email ? `/organizer/${userIdStr}?email=${encodeURIComponent(email)}` : `/organizer/${userIdStr}`;
+      const response = await clubApi.get(url);
       console.log("Club Data in service  : ", response);
       return response.data;
     } catch (error) {

@@ -26,6 +26,13 @@ export { default as LeaderboardPage } from './LeaderboardPage';
 // Club Pages
 export { default as ClubDetailPage } from './ClubDetailPage';
 export { default as CreateClubPage } from './CreateClubPage';
+export { default as CertificatePage } from './CertificatePage';
+export { default as ClubInformation } from './ClubInformation';
+export { default as ClubConflictPage } from './ClubConflictPage';
+export { default as VolunteerDashboardPage } from './VolunteerDashboardPage';
+export { default as AttendanceHistoryPage } from './AttendanceHistoryPage';
+export { default as CertificatesListPage } from './CertificatesListPage';
+
 
 // Recruitment Pages
 export { default as CreateRecruitment } from './recruitment/CreateRecruitment';
@@ -38,3 +45,4 @@ export { default as RecruitmentDetailPage } from './recruitment/RecruitmentDetai
 export { default as ExamAttemptPage } from './recruitment/ExamAttemptPage';
 export { default as EvaluateExam } from './recruitment/EvaluateExam';
 export { default as ExamReviewPage } from './recruitment/ExamReviewPage';
+export { default as SelectedStudentsPage } from './recruitment/SelectedStudentsPage';

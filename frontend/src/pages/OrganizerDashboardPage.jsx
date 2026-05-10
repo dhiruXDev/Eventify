@@ -130,6 +130,20 @@ const OrganizerDashboardPage = () => {
               </Link>
             </div>
 
+            {/* Event Scanner Card */}
+            <div className="bg-white rounded-lg shadow p-6 border border-gray-200 hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-800">Event Scanner</h2>
+                <svg className="w-8 h-8 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+              </div>
+              <p className="text-gray-600 mb-4">Scan QR codes of participants to mark their attendance for events.</p>
+              <Link to="/volunteer-scanner" className="inline-block bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md transition duration-300">
+                Open Scanner
+              </Link>
+            </div>
+
           </div>
 
           {/* Upcoming Events Section */}

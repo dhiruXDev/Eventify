@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import EventRegistrationForm from '../components/events/EventRegistrationForm';
 import EventAnnouncements from '../components/events/EventAnnouncements';
 import EventReviews from '../components/events/EventReviews';
+import { QRCodeSVG } from 'qrcode.react';
 
 const EventDetailPage = () => {
   const { eventId } = useParams();
@@ -17,6 +18,8 @@ const EventDetailPage = () => {
   const [isRegistered, setIsRegistered] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   // Check if user is an organizer or admin
   const isOrganizerOrAdmin = user && (user.role === 'organizer' || user.role === 'admin');
@@ -104,9 +107,8 @@ const EventDetailPage = () => {
       return;
     }
     
-    // Only allow participants to register
-    if (user.role === 'admin' || user.role === 'organizer') {
-      // console.log('Admins and organizers cannot register for events');
+    // Admins cannot register for events, but organizers can (to test QR/attendance)
+    if (user.role === 'admin') {
       return;
     }
     
@@ -133,6 +135,29 @@ const EventDetailPage = () => {
       } catch (err) {
         console.error('Failed to delete event:', err);
         // Show error message
+      }
+    }
+  };
+
+  const handleFetchQr = async () => {
+    try {
+      const res = await eventService.getQrCode(eventId);
+      setQrCodeData(res.qrToken);
+      setShowQrModal(true);
+    } catch (err) {
+      console.error('Failed to get QR code', err);
+      alert('Failed to get QR code: ' + err.message);
+    }
+  };
+
+  const handleReleaseCertificates = async () => {
+    if (window.confirm('Release certificates for all attendees?')) {
+      try {
+        const res = await eventService.releaseCertificates(eventId);
+        alert(res.message);
+        fetchParticipants(); // refresh
+      } catch (err) {
+        alert('Failed: ' + err.message);
       }
     }
   };
@@ -338,8 +363,8 @@ const EventDetailPage = () => {
           </div>
         </div>
 
-        {/* Registration section - only visible to participants */}
-        {!isOrganizerOrAdmin && (
+        {/* Registration section - visible to participants and organizers */}
+        {user?.role !== 'admin' && (
           <div className="mt-8 bg-white shadow sm:rounded-lg">
             <div className="px-4 py-5 sm:p-6">
               <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -365,12 +390,20 @@ const EventDetailPage = () => {
                     Register Closed
                   </button>
                 ) : isRegistered ? (
-                  <button
-                    onClick={handleCancelRegistration}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Cancel Registration
-                  </button>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={handleCancelRegistration}
+                      className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      Cancel Registration
+                    </button>
+                    <button
+                      onClick={handleFetchQr}
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      View Ticket QR
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={handleRegister}
@@ -407,14 +440,21 @@ const EventDetailPage = () => {
         {isOrganizerOrAdmin && (
           <div className="mt-8 bg-white shadow sm:rounded-lg">
             <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900">
-                Registered Participants ({participants ? participants.length : 0})
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  Registered Participants ({participants ? participants.length : 0})
+                </h3>
+                {isEventPast() && (
+                  <button onClick={handleReleaseCertificates} className="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 transition">
+                    Release Certificates
+                  </button>
+                )}
+              </div>
               <div className="mt-4">
                 {participants && participants.length > 0 ? (
                   <ul className="divide-y divide-gray-200">
                     {participants.map((participant) => (
-                      <li key={participant.userId || `participant-${Math.random()}`} className="py-4 flex">
+                      <li key={participant.userId || `participant-${Math.random()}`} className="py-4 flex justify-between items-center">
                         <div className="ml-3">
                           <p className="text-sm font-medium text-gray-900">
                             {participant.name || 'Unnamed Participant'}
@@ -422,6 +462,16 @@ const EventDetailPage = () => {
                           <p className="text-sm text-gray-500">
                             {participant.email || 'No email provided'}
                           </p>
+                        </div>
+                        <div>
+                          <span className={`px-2 py-1 text-xs rounded-full font-bold ${participant.attended ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {participant.attended ? 'Present' : 'Absent'}
+                          </span>
+                          {participant.certificateIssued && (
+                            <span className="ml-2 px-2 py-1 text-xs rounded-full font-bold bg-blue-100 text-blue-800">
+                              Certificate Issued
+                            </span>
+                          )}
                         </div>
                       </li>
                     ))}
@@ -446,6 +496,34 @@ const EventDetailPage = () => {
           <EventReviews eventId={eventId} />
         </div>
       </div>
+
+      {/* QR Modal */}
+      {showQrModal && qrCodeData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Your Event Ticket</h3>
+              <button onClick={() => setShowQrModal(false)} className="text-gray-500 hover:text-gray-700">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex flex-col items-center justify-center py-4">
+              <div className="bg-gray-100 p-4 rounded-lg mb-4 flex justify-center w-full">
+                <QRCodeSVG value={qrCodeData} size={200} />
+              </div>
+              <p className="text-sm text-center text-gray-600">
+                Show this QR code to the event organizers upon arrival to mark your attendance.
+              </p>
+            </div>
+            <button 
+              onClick={() => setShowQrModal(false)}
+              className="w-full mt-4 bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

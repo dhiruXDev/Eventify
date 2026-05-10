@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base URL for event service
 //const API_URL = 'https://univent-event-service.onrender.com/api/events';
-const API_URL = 'http://localhost:8002/api/events';
+const API_URL = 'http://127.0.0.1:8002/api/events';
 
 // const API_URL = 'http://localhost:8002/api/events';
 // Create axios instance with default config
@@ -240,6 +240,87 @@ const eventService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to delete platform rating');
+    }
+  },
+
+  getQrCode: async (eventId) => {
+    try {
+      const response = await eventApi.get(`/${eventId}/qrcode`);
+      return response.data.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch QR code');
+    }
+  },
+
+  scanQrCode: async (eventId, qrToken) => {
+    try {
+      const response = await eventApi.post(`/${eventId}/attendance/scan`, { qrToken });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to scan QR code');
+    }
+  },
+
+  manualCheckIn: async (eventId, identifier) => {
+    try {
+      const response = await eventApi.post(`/${eventId}/attendance/manual`, { identifier });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to manually check-in');
+    }
+  },
+
+  getAttendanceHistory: async () => {
+    try {
+      const response = await eventApi.get('/attendance/history');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch attendance history');
+    }
+  },
+
+  getScanHistory: async () => {
+    try {
+      const response = await eventApi.get('/attendance/scans');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch scan history');
+    }
+  },
+
+  getAttendanceStats: async (eventId) => {
+    try {
+      const response = await eventApi.get(`/${eventId}/attendance/stats`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to fetch attendance stats');
+    }
+  },
+
+  assignVolunteers: async (eventId, volunteerIds) => {
+    try {
+      const response = await eventApi.post(`/${eventId}/volunteers`, { volunteerIds });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to assign volunteers');
+    }
+  },
+
+  releaseCertificates: async (eventId) => {
+    try {
+      const response = await eventApi.post(`/${eventId}/certificates/release`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to release certificates');
+    }
+  },
+
+  sendCertificates: async (eventId, participantIds) => {
+    try {
+      const response = await eventApi.post(`/${eventId}/certificates/send`, { participantIds });
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to send certificates');
     }
   }
 };
