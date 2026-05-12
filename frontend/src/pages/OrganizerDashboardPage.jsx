@@ -139,7 +139,7 @@ const OrganizerDashboardPage = () => {
                 </svg>
               </div>
               <p className="text-gray-600 mb-4">Scan QR codes of participants to mark their attendance for events.</p>
-              <Link to="/volunteer-scanner" className="inline-block bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md transition duration-300">
+              <Link to="/attendance" className="inline-block bg-pink-600 hover:bg-pink-700 text-white py-2 px-4 rounded-md transition duration-300">
                 Open Scanner
               </Link>
             </div>

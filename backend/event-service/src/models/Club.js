@@ -27,6 +27,18 @@ const clubSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  seal: {
+    type: String,
+    default: ''
+  },
+  coordinatorSignature: {
+    type: String,
+    default: ''
+  },
+  directorSignature: {
+    type: String,
+    default: ''
+  },
   about: {
     type: String,
     default: ''

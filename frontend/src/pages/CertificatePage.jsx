@@ -48,6 +48,8 @@ const CertificatePage = () => {
     fetchEventData();
   }, [eventId]);
 
+  const [theme, setTheme] = useState('blue-light');
+
   const handleDownloadPdf = async () => {
     if (!certificateRef.current) return;
     
@@ -63,7 +65,7 @@ const CertificatePage = () => {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${eventData.title.replace(/\\s+/g, '_')}_Certificate.pdf`);
+      pdf.save(`${eventData.title.replace(/\s+/g, '_')}_Certificate.pdf`);
     } catch (err) {
       console.error('Failed to generate PDF', err);
     }
@@ -90,14 +92,22 @@ const CertificatePage = () => {
         <Typography variant="h4" component="h1">
           Your Certificate
         </Typography>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          startIcon={<DownloadIcon />}
-          onClick={handleDownloadPdf}
-        >
-          Download PDF
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button 
+            variant="outlined" 
+            onClick={() => setTheme(theme === 'blue-light' ? 'gold-dark' : 'blue-light')}
+          >
+            Switch to {theme === 'blue-light' ? 'Gold' : 'Blue'} Theme
+          </Button>
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadPdf}
+          >
+            Download PDF
+          </Button>
+        </Box>
       </Box>
 
       <Box sx={{ display: 'flex', justifyItems: 'center', justifyContent: 'center', overflow: 'auto', p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
@@ -107,6 +117,11 @@ const CertificatePage = () => {
           eventName={eventData.title}
           date={eventData.date}
           organizerName={eventData.organizerName || 'Univent Organizer'}
+          clubLogo={eventData.clubLogo}
+          clubSeal={eventData.clubSeal}
+          coordinatorSignature={eventData.coordinatorSignature}
+          directorSignature={eventData.directorSignature}
+          theme={theme}
         />
       </Box>
     </Container>

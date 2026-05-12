@@ -210,7 +210,7 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
             )}
 
             {/* Attendance Management - Visible to Organizers, Admins, Volunteers, and Club Members */}
-            {(isOrganizer || isAdmin || user?.role === 'volunteer' || user?.role === 'participant' || user?.role === 'member') && (
+            {(isOrganizer || isAdmin || user?.role === 'volunteer' || user?.role === 'member') && (
               <li>
                 <Link
                   to="/attendance"
