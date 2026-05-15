@@ -30,7 +30,7 @@ app.use(limiter);
 // Middleware
 app.use(helmet()); // Set security headers
 app.use(cors({
-  origin: [process.env.CLIENT_URL, 'http://localhost:5173', 'https://univento.vercel.app'],
+  origin: [process.env.CLIENT_URL, 'https://eventify-delta-eight.vercel.app', 'http://localhost:5173'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
