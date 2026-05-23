@@ -1,121 +1,218 @@
+# Eventify 🎉
 
-# Eventify
+### College Event & Club Management System for SLIET
 
-A modern event management application built with JavaScript.
+> Transforming campus life through a centralized digital platform that connects students, clubs, and administrators for seamless event management and enhanced engagement.
 
-## Overview
+---
 
-Eventify is a comprehensive event management platform designed to simplify the process of creating, organizing, and managing events. Whether you're planning a conference, workshop, concert, or community gathering, Eventify provides all the tools you need to make your event a success.
+## 📌 Problem Statement
 
-## Features
+As students of SLIET, managing event records, participation history, certificates, registrations, and club activities across multiple WhatsApp groups, posters, and platforms often becomes confusing and stressful.
 
-- 📅 **Event Creation & Management** - Easily create and organize events with detailed information
-- 👥 **Attendee Management** - Track and manage event participants
-- 📋 **Event Scheduling** - Flexible date and time management
-- 🎟️ **Ticket Management** - Generate and manage event tickets
-- 🔔 **Notifications** - Keep attendees informed with automated notifications
-- 📊 **Analytics & Reporting** - Track event metrics and attendance
-- 🔐 **Secure Access** - Role-based permissions and security features
+From searching old certificates at the last moment to missing important event updates and handling manual attendance, the entire process lacks a centralized and efficient system.
 
-## Tech Stack
+To solve this real-world campus problem, we built **Eventify** — a unified platform for managing college events, club activities, student participation, and announcements in one place.
 
-- **Language**: JavaScript (99.6%)
-- **Frontend**: [Add your frontend framework if applicable]
-- **Backend**: [Add your backend framework if applicable]
-- **Database**: [Add your database if applicable]
+---
 
-## Installation
+## 🚀 Features
 
-### Prerequisites
-- Node.js (v14 or higher)
-- npm or yarn
+### 🎯 Event Management
 
-### Setup
+* Create, update, and manage college events
+* Event categorization and filtering
+* Capacity management for events
+* Event scheduling with conflict detection
 
-1. Clone the repository:
+### 📝 Smart Registration System
+
+* Online event registration
+* One-click participation system
+* Real-time participant tracking
+
+### 📷 QR-Based Attendance
+
+* Smart attendance system using QR codes
+* Fast and secure check-in process
+* Automated attendance records
+
+### 🏆 Leaderboard & Gamification
+
+* Participation points tracking
+* Leaderboards for active students
+* Badges and achievements system
+
+### 📢 Real-Time Notifications
+
+* Event announcements
+* Instant updates using Socket.io
+* Important reminders and notifications
+
+### 🧾 Automated Certificates
+
+* Online certificate generation
+* Downloadable participation certificates
+* Digital certificate management
+
+### 🧠 Club Recruitment Workflow
+
+* Online recruitment drives
+* Quiz/Test-based selection process
+* Performance analysis system
+
+### 🔐 Secure Authentication
+
+* JWT-based authentication & authorization
+* Role-based dashboards:
+
+  * Student
+  * Organizer
+  * Admin
+
+---
+
+## 🛠️ Tech Stack
+
+### Frontend
+
+* React.js
+* Redux Toolkit
+* Tailwind CSS
+
+### Backend
+
+* Node.js
+* Express.js
+
+### Database
+
+* MongoDB
+
+### Real-Time Communication
+
+* Socket.io
+
+### Authentication
+
+* JWT (JSON Web Token)
+
+### Architecture
+
+* Microservices Architecture
+
+---
+
+## 🏗️ System Architecture
+
+Eventify follows a scalable MERN-based architecture with modular services for authentication, events, attendance, notifications, and certificates.
+
+```bash
+Client (React.js)
+       ↓
+REST APIs + Socket.io
+       ↓
+Node.js + Express.js
+       ↓
+MongoDB Database
+```
+
+---
+
+## 📸 Modules Included
+
+* Landing Page
+* User Authentication
+* Organizer Dashboard
+* Event Creation & Management
+* Event Calendar View
+* QR Attendance System
+* Notifications & Announcements
+* Leaderboard & Gamification
+* Reviews & Feedback
+* Certificate Management
+* Recruitment Test Hub
+
+---
+
+## ⚙️ Installation & Setup
+
+### 1️⃣ Clone the Repository
+
 ```bash
 git clone https://github.com/dhiruXDev/Eventify.git
 cd Eventify
 ```
 
-2. Install dependencies:
+### 2️⃣ Install Dependencies
+
+#### Frontend
+
 ```bash
+cd client
 npm install
-# or
-yarn install
 ```
 
-3. Configure environment variables:
+#### Backend
+
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+cd server
+npm install
 ```
-
-4. Start the application:
-```bash
-npm start
-# or
-yarn start
-```
-
-## Usage
-
-[Add instructions on how to use Eventify here]
-
-### Example
-```javascript
-// Add usage examples here
-```
-
-## Project Structure
-
-```
-Eventify/
-├── src/
-├── public/
-├── tests/
-├── package.json
-└── README.md
-```
-
-## Contributing
-
-We welcome contributions! To contribute to Eventify:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-Please ensure your code follows our coding standards and includes appropriate tests.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-If you have any questions or need support, please:
-- Open an issue on GitHub
-- Check existing documentation
-- Contact the maintainers
-
-## Roadmap
-
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-
-## Authors
-
-- **dhiruXDev** - Initial work and maintenance
-
-## Acknowledgments
-
-- Thanks to all contributors
-- Special thanks to the community
 
 ---
 
-Made with ❤️ by dhiruXDev
+### 3️⃣ Configure Environment Variables
+
+Create a `.env` file in the backend directory.
+
+```env
+PORT=5000
+MONGO_URI=your_mongodb_connection
+JWT_SECRET=your_secret_key
+CLIENT_URL=http://localhost:3000
+```
+
+---
+
+### 4️⃣ Run the Project
+
+#### Start Backend
+
+```bash
+npm run server
+```
+
+#### Start Frontend
+
+```bash
+npm start
+```
+
+---
+
+## 🌟 Future Enhancements
+
+* AI-based event recommendations
+* Mobile application support
+* Advanced analytics dashboard
+* Payment gateway integration
+* Attendance facial recognition
+* College-wide community forums
+
+---
+
+## 👨‍💻 Developed By
+
+* Dhiraj Kumar
+* Nikita Gupta
+* Abhishek Anand
+
+Under the guidance of **Dr. Manoj Sachan**
+Professor, Department of CSE, SLIET
+
+---
+
+## 📌 GitHub Repository
+
+[https://github.com/dhiruXDev/Eventify](https://github.com/dhiruXDev/Eventify)
