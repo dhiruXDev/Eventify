@@ -108,13 +108,28 @@ To solve this real-world campus problem, we built **Eventify** — a unified pla
 Eventify follows a scalable MERN-based architecture with modular services for authentication, events, attendance, notifications, and certificates.
 
 ```bash
-Client (React.js)
-       ↓
-REST APIs + Socket.io
-       ↓
-Node.js + Express.js
-       ↓
-MongoDB Database
+┌───────────────────────┐
+│   Client (React.js)  │
+└──────────┬────────────┘
+           │
+           ▼
+┌───────────────────────┐
+│      API Gateway      │
+└──────────┬────────────┘
+           │
+ ┌─────────┼─────────┬─────────┬─────────┬─────────┐
+ ▼         ▼         ▼         ▼         ▼         ▼
+┌────────┐ ┌────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐
+│ Auth   │ │ Event  │ │Leaderboard │ │Notification│ │  Settings  │ │ Socket.io  │
+│Service │ │Service │ │  Service   │ │  Service   │ │  Service   │ │ Real-Time  │
+└────┬───┘ └────┬───┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘ └─────┬──────┘
+     │           │           │              │              │              │
+     └───────────┴───────────┴──────────────┴──────────────┴──────────────┘
+                                     │
+                                     ▼
+                           ┌────────────────┐
+                           │ MongoDB Atlas  │
+                           └────────────────┘
 ```
 
 ---
