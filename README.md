@@ -1,4 +1,4 @@
-# Eventify 🎉
+# Eventify 
 
 ### College Event & Club Management System for SLIET
 
@@ -151,7 +151,7 @@ Eventify follows a scalable MERN-based architecture with modular services for au
 * Recruitment Test Hub
 
 ---
-
+```
 ## ⚙️ Installation & Setup
 
 ### 1️⃣ Clone the Repository
